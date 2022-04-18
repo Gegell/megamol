@@ -107,9 +107,9 @@ bool trialvolume::ParticleToVolume::getDataCallback(core::Call& caller) {
         metadata.NumberOfFrames = 1;
 
         metadata.MinValues = new double[1];
-        metadata.MinValues[0] = 0.0f;
+        metadata.MinValues[0] = this->minValue;
         metadata.MaxValues = new double[1];
-        metadata.MaxValues[0] = 1.0f; //TODO: make this configurable, or use the max value of the volume data
+        metadata.MaxValues[0] = this->maxValue;
 
         auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
 
@@ -219,6 +219,11 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
             // TODO add splatting kernel
         }
     }
+
+    auto [min, max] = std::minmax_element(this->volume.begin(), this->volume.end());
+    this->minValue = *min;
+    this->maxValue = *max;
+
     const auto endTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> diffMillis = endTime - startTime;
     megamol::core::utility::log::Log::DefaultLog.WriteInfo(

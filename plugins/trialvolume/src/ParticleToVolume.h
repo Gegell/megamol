@@ -147,6 +147,12 @@ private:
     /** The volume data */
     std::vector<float> volume;
 
+    /** The minimum value of the volume */
+    float minValue = 0.0f;
+
+    /** The maximum value of the volume */
+    float maxValue = 0.0f;
+
     /** The volume metadata */
     megamol::geocalls::VolumetricDataCall::Metadata metadata;
 
