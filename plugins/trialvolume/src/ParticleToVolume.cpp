@@ -4,6 +4,9 @@
 
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/FloatParam.h"
+#include "mmcore/param/EnumParam.h"
+
+#include <functional>
 
 using namespace megamol;
 
@@ -17,6 +20,10 @@ void trialvolume::ParticleToVolume::release(void) {
 
 trialvolume::ParticleToVolume::ParticleToVolume(void) 
         : voxelSizeSlot("voxelSize", "Voxel size")
+        , kernelTypeSlot("kernelType", "Kernel type")
+        , kernelMetricSlot("kernelMetric", "Kernel metric")
+        , kernelRadiusSlot("kernelRadius", "Kernel radius")
+        , kernelBoundarySlot("kernelBoundary", "Kernel boundary handling")
         , outDataSlot("outData", "Provides splatted particle volume")
         , inParticleDataSlot("inParticleData", "Takes the particle data") {
     // Setup volumetric data output slot
@@ -48,6 +55,34 @@ trialvolume::ParticleToVolume::ParticleToVolume(void)
     this->voxelSizeSlot << new core::param::FloatParam(
         1.0f, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::max(), 0.1f);
     this->MakeSlotAvailable(&this->voxelSizeSlot);
+
+    // Setup kernel type slot
+    auto* ktp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST);
+    ktp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST, "Nearest");
+    ktp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_TYPE_BUMP, "Bump");
+    this->kernelTypeSlot << ktp;
+    this->MakeSlotAvailable(&this->kernelTypeSlot);
+
+    // Setup kernel metric slot
+    auto* kmp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN);
+    kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN, "Euclidean");
+    kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_MANHATTAN, "Manhattan");
+    kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_CHEBYSHEV, "Chebyshev");
+    this->kernelMetricSlot << kmp;
+    this->MakeSlotAvailable(&this->kernelMetricSlot);
+
+    // Setup kernel radius slot
+    this->kernelRadiusSlot << new core::param::FloatParam(
+        1.0f, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::max(), 0.1f);
+    this->MakeSlotAvailable(&this->kernelRadiusSlot);
+
+    // Setup kernel boundary slot
+    auto* kbp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP);
+    kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP, "Clip");
+    kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP, "Clamp");
+    kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP, "Wrap");
+    this->kernelBoundarySlot << kbp;
+    this->MakeSlotAvailable(&this->kernelBoundarySlot);
 
     // TODO: Extend to include splatting kernel selection, domain wrapping, etc.
 }
@@ -188,6 +223,66 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
     auto const yCells = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
     auto const zCells = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
 
+    auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
+    auto const kernelCellSpan = static_cast<int>(std::ceil(kernelRadius / voxelSideLength));
+
+    std::function<float(float, float, float)> lengthFunction;
+    switch (this->kernelMetricSlot.Param<core::param::EnumParam>()->Value())
+    {
+    default:
+    case trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN:
+        lengthFunction = [](float const x, float const y, float const z) -> float {
+            return std::sqrt(x * x + y * y + z * z);
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_METRIC_MANHATTAN:
+        lengthFunction = [](float const x, float const y, float const z) -> float {
+            return std::abs(x) + std::abs(y) + std::abs(z);
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_METRIC_CHEBYSHEV:
+        lengthFunction = [](float const x, float const y, float const z) -> float {
+            return std::max(std::abs(x), std::max(std::abs(y), std::abs(z)));
+        };
+        break;
+    }
+
+    std::function<float(float)> kernel;
+    switch (this->kernelTypeSlot.Param<core::param::EnumParam>()->Value())
+    {
+    default:
+    case trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST:
+        kernel = [](float const dist) -> float {
+            return 0.0f;
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_TYPE_BUMP:
+        kernel = [kernelRadius](float const dist) -> float {
+            return dist <= kernelRadius ? std::exp(-1.0f / (1.0f - std::pow(dist / kernelRadius, 2.0f))) : 0.0f;
+        };
+        break;
+    }
+
+    std::function<float(float)> applyBoundary;
+    switch (this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value())
+    {
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP:
+        applyBoundary = [](float const value) -> float {
+            return std::max(0.0f, std::min(value, 1.0f));
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP:
+        applyBoundary = [](float const value) -> float {
+            return value - std::floor(value);
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP:
+        applyBoundary = [](float const value) -> float {
+            return value;
+        };
+        break;
+    }
+
     this->volume.resize(xCells * yCells * zCells);
     std::fill(this->volume.begin(), this->volume.end(), 0.0f);
 
@@ -210,13 +305,39 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
             auto yNorm = (y - bbox.Bottom()) / bbox.Height();
             auto zNorm = (z - bbox.Back()) / bbox.Depth();
 
-            auto xCell = static_cast<size_t>(std::floor(xNorm * xCells));
-            auto yCell = static_cast<size_t>(std::floor(yNorm * yCells));
-            auto zCell = static_cast<size_t>(std::floor(zNorm * zCells));
+            auto xCell = static_cast<int>(std::round(xNorm * xCells));
+            auto yCell = static_cast<int>(std::round(yNorm * yCells));
+            auto zCell = static_cast<int>(std::round(zNorm * zCells));
 
-            auto index = (zCell * yCells + yCell) * xCells + xCell;
-            this->volume[index] += 1.0f;
-            // TODO add splatting kernel
+            auto isKernel = this->kernelTypeSlot.Param<core::param::EnumParam>()->Value() != trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST;
+            if (!isKernel) {
+                auto index = (zCell * yCells + yCell) * xCells + xCell;
+                this->volume[index] += 1.0f;
+            } else {
+                for (auto dz = -kernelCellSpan; dz <= kernelCellSpan; ++dz) {
+                    for (auto dy = -kernelCellSpan; dy <= kernelCellSpan; ++dy) {
+                        for (auto dx = -kernelCellSpan; dx <= kernelCellSpan; ++dx) {
+                            auto const xBounded = std::round(applyBoundary(xNorm + static_cast<float>(dx) / xCells) * xCells);
+                            auto const yBounded = std::round(applyBoundary(yNorm + static_cast<float>(dy) / yCells) * yCells);
+                            auto const zBounded = std::round(applyBoundary(zNorm + static_cast<float>(dz) / zCells) * zCells);
+                            
+                            // Check if we are inside the volume
+                            if (xBounded < 0 || xBounded >= xCells ||
+                                yBounded < 0 || yBounded >= yCells ||
+                                zBounded < 0 || zBounded >= zCells) {
+                                continue;
+                            }
+
+                            auto const index = (static_cast<size_t>(zBounded) * yCells + static_cast<size_t>(yBounded)) * xCells + static_cast<size_t>(xBounded);
+                            // FIXME use offset to cell vertex
+                            auto const dist = lengthFunction(dx/voxelSideLength, dy/voxelSideLength, dz/voxelSideLength);
+                            auto const weight = kernel(dist);
+
+                            this->volume[index] += weight;
+                        }
+                    }
+                }
+            }
         }
     }
 

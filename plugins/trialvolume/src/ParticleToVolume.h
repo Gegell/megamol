@@ -25,6 +25,24 @@ namespace megamol::trialvolume {
  */
 class ParticleToVolume : public core::Module {
 public:
+
+    enum KernelType : int {
+        KERNEL_TYPE_NEAREST = 0,
+        KERNEL_TYPE_BUMP = 1
+    };
+
+    enum KernelMetric : int {
+        KERNEL_METRIC_EUCLIDEAN = 0,
+        KERNEL_METRIC_MANHATTAN = 1,
+        KERNEL_METRIC_CHEBYSHEV = 2
+    };
+
+    enum KernelBoundary : int {
+        KERNEL_BOUNDARY_CLIP = 0,
+        KERNEL_BOUNDARY_CLAMP = 1,
+        KERNEL_BOUNDARY_WRAP = 2
+    };
+
     /**
      * Answer the name of the objects of this description.
      *
@@ -112,7 +130,11 @@ private:
      */
     inline bool anythingDirty() const {
         // TODO expand if more parameters are added
-        return this->voxelSizeSlot.IsDirty();
+        return this->voxelSizeSlot.IsDirty()
+            || this->kernelTypeSlot.IsDirty()
+            || this->kernelMetricSlot.IsDirty()
+            || this->kernelRadiusSlot.IsDirty()
+            || this->kernelBoundarySlot.IsDirty();
     }
 
     /**
@@ -121,7 +143,23 @@ private:
     inline void resetDirtyFlags() {
         // TODO expand if more parameters are added
         this->voxelSizeSlot.ResetDirty();
+        this->kernelTypeSlot.ResetDirty();
+        this->kernelMetricSlot.ResetDirty();
+        this->kernelRadiusSlot.ResetDirty();
+        this->kernelBoundarySlot.ResetDirty();
     }
+
+    /** The slot specifying the kernel type */
+    core::param::ParamSlot kernelTypeSlot;
+
+    /** The slot specifying the kernel metric */
+    core::param::ParamSlot kernelMetricSlot;
+
+    /** The slot specifying the kernel radius */
+    core::param::ParamSlot kernelRadiusSlot;
+
+    /** The slot specifying the kernal boundary handling */
+    core::param::ParamSlot kernelBoundarySlot;
 
     /** The slot for a single volume voxel sidelength */
     core::param::ParamSlot voxelSizeSlot;
