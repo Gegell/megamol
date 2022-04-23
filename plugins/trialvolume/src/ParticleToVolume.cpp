@@ -1,6 +1,5 @@
 
 #include "ParticleToVolume.h"
-#include "stdafx.h"
 
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/FloatParam.h"
