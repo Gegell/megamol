@@ -1099,6 +1099,33 @@ function(require_external NAME)
       LIBRARY ${MWKMint_Spout_LIB}
     )
 
+  # voro++
+  elseif (NAME STREQUAL "voro++")
+    if (TARGET voro++)
+      return()
+    endif ()
+
+    if (MSVC)
+      set(VORO_LIB "lib/voro++.lib")
+    else ()
+      set(VORO_LIB "lib/libvoro++.a")
+    endif ()
+
+    add_external_project(voro++ STATIC
+      GIT_REPOSITORY https://github.com/chr1shr/voro.git
+      GIT_TAG 56d619faf3479313399516ad71c32773c29be859
+      BUILD_BYPRODUCTS "<INSTALL_DIR>/${VORO_LIB}"
+      CMAKE_ARGS
+        -DVORO_BUILD_SHARED_LIBS:BOOL=OFF
+        -DVORO_BUILD_EXAMPLES:BOOL=OFF
+        -DVORO_BUILD_CMD_LINE:BOOL=OFF
+        -DVORO_ENABLE_DOXYGEN:BOOL=OFF
+    )
+
+    add_external_library(voro++
+      LIBRARY ${VORO_LIB}
+    )
+
   else ()
     message(FATAL_ERROR "Unknown external required \"${NAME}\"")
   endif ()

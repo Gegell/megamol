@@ -9,7 +9,7 @@ megamol_plugin(trailvolume
     geometry_calls
     # plugin2
   DEPENDS_EXTERNALS
-    # external1
+    voro++
     # external2
   )
 
