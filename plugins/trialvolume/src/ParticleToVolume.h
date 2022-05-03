@@ -120,6 +120,10 @@ private:
 
     bool createVolume(geocalls::MultiParticleDataCall* caller);
 
+    bool computeNaturalNeighborhood(geocalls::MultiParticleDataCall* caller);
+
+    bool computeKernel(geocalls::MultiParticleDataCall* caller);
+
     /**
      * Implementation of 'Release'.
      */
@@ -190,6 +194,15 @@ private:
 
     /** The maximum value of the volume */
     float maxValue = 0.0f;
+
+    /** The number of voxels in the x direction */
+    size_t xCells;
+
+    /** The number of voxels in the y direction */
+    size_t yCells;
+
+    /** The number of voxels in the z direction */
+    size_t zCells;
 
     /** The volume metadata */
     megamol::geocalls::VolumetricDataCall::Metadata metadata;

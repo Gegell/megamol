@@ -5,6 +5,8 @@
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/EnumParam.h"
 
+#include "voro++.hh"
+
 #include <functional>
 
 using namespace megamol;
@@ -218,9 +220,30 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
 
     auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
 
-    auto const xCells = static_cast<size_t>(std::ceil(bbox.Width() / voxelSideLength));
-    auto const yCells = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
-    auto const zCells = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
+    this->xCells = static_cast<size_t>(std::ceil(bbox.Width() / voxelSideLength));
+    this->yCells = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
+    this->zCells = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
+
+    this->volume.resize(xCells * yCells * zCells);
+    std::fill(this->volume.begin(), this->volume.end(), 0.0f);
+
+    // TODO Switch between natural neighbor interpolation and kernel splatting
+    this->computeNaturalNeighborhood(caller);
+
+    auto [min, max] = std::minmax_element(this->volume.begin(), this->volume.end());
+    this->minValue = *min;
+    this->maxValue = *max;
+
+    const auto endTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<float, std::milli> diffMillis = endTime - startTime;
+    megamol::core::utility::log::Log::DefaultLog.WriteInfo(
+        "ParticleToVolume: creation of %u x %u x %u volume from %llu particles took %f ms.", xCells, yCells, zCells,
+        totalParticles, diffMillis.count());
+    return true;
+}
+
+bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCall* caller) {
+    auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
 
     auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
     auto const kernelCellSpan = static_cast<int>(std::ceil(kernelRadius / voxelSideLength));
@@ -282,14 +305,9 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
         break;
     }
 
-    this->volume.resize(xCells * yCells * zCells);
-    std::fill(this->volume.begin(), this->volume.end(), 0.0f);
-
     for (size_t i = 0; i < caller->GetParticleListCount(); i++) {
         auto& particleList = caller->AccessParticles(i);
         auto& ps = particleList.GetParticleStore();
-
-        totalParticles += particleList.GetCount();
 
         auto xAcc = ps.GetXAcc();
         auto yAcc = ps.GetYAcc();
@@ -339,15 +357,123 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
             }
         }
     }
+    return true;
+}
 
-    auto [min, max] = std::minmax_element(this->volume.begin(), this->volume.end());
-    this->minValue = *min;
-    this->maxValue = *max;
+bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiParticleDataCall* caller) {
+    auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
+    auto const isWrapping = this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value() == trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP;
+    auto voroContainer = voro::container(bbox.Left(), bbox.Right(),
+                                         bbox.Bottom(), bbox.Top(),
+                                         bbox.Back(), bbox.Front(),
+                                         8, 8, 8,
+                                         isWrapping, isWrapping, isWrapping,
+                                         8);
+    auto particleId = 0;
+    for (size_t i = 0; i < caller->GetParticleListCount(); i++) {
+        auto& particleList = caller->AccessParticles(i);
+        auto& ps = particleList.GetParticleStore();
 
-    const auto endTime = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<float, std::milli> diffMillis = endTime - startTime;
-    megamol::core::utility::log::Log::DefaultLog.WriteInfo(
-        "ParticleToVolume: creation of %u x %u x %u volume from %llu particles took %f ms.", xCells, yCells, zCells,
-        totalParticles, diffMillis.count());
+        auto xAcc = ps.GetXAcc();
+        auto yAcc = ps.GetYAcc();
+        auto zAcc = ps.GetZAcc();
+
+        for (size_t j = 0; j < particleList.GetCount(); j++, particleId++) {
+            auto x = xAcc->Get_f(j);
+            auto y = yAcc->Get_f(j);
+            auto z = zAcc->Get_f(j);
+
+            voroContainer.put(particleId, x, y, z);
+        }
+    }
+
+    std::vector<int> neighbors;
+    std::vector<double> weights;
+    
+    auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
+    std::function<float(float)> kernel;
+    switch (this->kernelTypeSlot.Param<core::param::EnumParam>()->Value())
+    {
+    default:
+    case trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST:
+        kernel = [](float const dist) -> float {
+            return 0.0f;
+        };
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_TYPE_BUMP:
+        kernel = [kernelRadius](float const dist) -> float {
+            return dist <= kernelRadius ? std::exp(-1.0f / (1.0f - std::pow(dist / kernelRadius, 2.0f))) : 0.0f;
+        };
+        break;
+    }
+
+    for (auto z = 0; z < zCells; ++z) 
+    for (auto y = 0; y < yCells; ++y) 
+    for (auto x = 0; x < xCells; ++x) {
+
+        auto xNorm = x / static_cast<double>(xCells-1);
+        auto yNorm = y / static_cast<double>(yCells-1);
+        auto zNorm = z / static_cast<double>(zCells-1);
+
+        auto xLocal = xNorm * bbox.Width() + bbox.Left();
+        auto yLocal = yNorm * bbox.Height() + bbox.Bottom();
+        auto zLocal = zNorm * bbox.Depth() + bbox.Back();
+
+        voro::voronoicell_neighbor cell(voroContainer);
+        if (voroContainer.compute_ghost_cell(cell, xLocal, yLocal, zLocal)) {
+            
+            auto const index = (z * yCells + y) * xCells + x;
+            cell.face_areas(weights);
+            cell.neighbors(neighbors);
+            auto weightSum = 0.0;
+            auto interpolated = 0.0;
+
+            for (size_t i = 0; i < neighbors.size(); i++) {
+                auto neighborId = neighbors[i];
+                // Skip negative neighbors, e.g. if the neighbor is the boundary
+                if (neighborId < 0)
+                    continue;
+
+                // Search for the particle list containing the neighbor
+                auto particleListId = 0;
+                for (;particleListId < caller->GetParticleListCount(); particleListId++) {
+                    auto& particleList = caller->AccessParticles(particleListId);
+                    if (neighborId >= particleList.GetCount()) {
+                        neighborId -= particleList.GetCount();
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                auto& particleList = caller->AccessParticles(particleListId);
+                auto& ps = particleList.GetParticleStore();
+
+                // Compute the distance between the two particles
+                auto xAcc = ps.GetXAcc();
+                auto yAcc = ps.GetYAcc();
+                auto zAcc = ps.GetZAcc();
+                auto const xNeighbor = xAcc->Get_f(neighborId);
+                auto const yNeighbor = yAcc->Get_f(neighborId);
+                auto const zNeighbor = zAcc->Get_f(neighborId);
+                auto const dx = xNeighbor - xLocal;
+                auto const dy = yNeighbor - yLocal;
+                auto const dz = zNeighbor - zLocal;
+                auto const dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+
+                // Compute the un-normalized laplacian weight
+                weights[i] /= dist;
+                weightSum += weights[i];
+
+                // Interpolate the distance to the neighbor
+                // TODO change this to use actual point data (e.g. color, etc.)
+                interpolated += weights[i] * kernel(dist);
+            }
+            // Normalize the laplacian weights
+            interpolated /= weightSum;
+
+            // Apply the rbf
+            this->volume[index] = interpolated;
+        }
+    }
     return true;
 }
