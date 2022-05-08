@@ -1120,6 +1120,9 @@ function(require_external NAME)
         -DVORO_BUILD_EXAMPLES:BOOL=OFF
         -DVORO_BUILD_CMD_LINE:BOOL=OFF
         -DVORO_ENABLE_DOXYGEN:BOOL=OFF
+      PATCH_COMMAND ${CMAKE_COMMAND} 
+        -DVORO_CMAKE_FILE:FILEPATH="<SOURCE_DIR>/CMakeLists.txt"
+        -P "${CMAKE_SOURCE_DIR}/externals/voro++/patch.cmake"
     )
 
     add_external_library(voro++
