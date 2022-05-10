@@ -372,7 +372,7 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
 
                             auto const index = (zBounded * yCells + yBounded) * xCells + xBounded;
                             // FIXME use offset to cell vertex
-                            auto const dist = lengthFunction(dx/voxelSideLength, dy/voxelSideLength, dz/voxelSideLength);
+                            auto const dist = lengthFunction(dx*voxelSideLength, dy*voxelSideLength, dz*voxelSideLength);
                             auto const weight = kernel(dist);
 
                             this->volume[index] += weight;
