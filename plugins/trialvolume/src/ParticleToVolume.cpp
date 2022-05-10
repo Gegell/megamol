@@ -20,7 +20,8 @@ void trialvolume::ParticleToVolume::release(void) {
 }
 
 trialvolume::ParticleToVolume::ParticleToVolume(void) 
-        : voxelSizeSlot("voxelSize", "Voxel size")
+        : splattingMethodSlot("SplattingMethod", "The splatting method to use")
+        , voxelSizeSlot("voxelSize", "Voxel size")
         , kernelTypeSlot("kernelType", "Kernel type")
         , kernelMetricSlot("kernelMetric", "Kernel metric")
         , kernelRadiusSlot("kernelRadius", "Kernel radius")
@@ -85,7 +86,12 @@ trialvolume::ParticleToVolume::ParticleToVolume(void)
     this->kernelBoundarySlot << kbp;
     this->MakeSlotAvailable(&this->kernelBoundarySlot);
 
-    // TODO: Extend to include splatting kernel selection, domain wrapping, etc.
+    // Setup splatting method slot
+    auto* spm = new core::param::EnumParam(trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL);
+    spm->SetTypePair(trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL, "Kernel");
+    spm->SetTypePair(trialvolume::ParticleToVolume::SPLAT_METHOD_NATURAL_NEIGHBOR, "Natural Neighbor");
+    this->splattingMethodSlot << spm;
+    this->MakeSlotAvailable(&this->splattingMethodSlot);
 }
 
 trialvolume::ParticleToVolume::~ParticleToVolume(void) {
@@ -227,8 +233,18 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
     this->volume.resize(xCells * yCells * zCells);
     std::fill(this->volume.begin(), this->volume.end(), 0.0f);
 
-    // TODO Switch between natural neighbor interpolation and kernel splatting
-    this->computeNaturalNeighborhood(caller);
+    auto success = false;
+    switch (this->splattingMethodSlot.Param<core::param::EnumParam>()->Value()) {
+        case trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL:
+            success = this->computeKernel(caller);
+            break;
+        case trialvolume::ParticleToVolume::SPLAT_METHOD_NATURAL_NEIGHBOR:
+            success = this->computeNaturalNeighborhood(caller);
+            break;
+    }
+    if (!success) {
+        megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: could not create volume");
+    }
 
     auto [min, max] = std::minmax_element(this->volume.begin(), this->volume.end());
     this->minValue = *min;
@@ -243,6 +259,8 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
 }
 
 bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCall* caller) {
+    auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
+
     auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
 
     auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
@@ -322,21 +340,28 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
             auto yNorm = (y - bbox.Bottom()) / bbox.Height();
             auto zNorm = (z - bbox.Back()) / bbox.Depth();
 
-            auto xCell = static_cast<int>(std::round(xNorm * xCells));
-            auto yCell = static_cast<int>(std::round(yNorm * yCells));
-            auto zCell = static_cast<int>(std::round(zNorm * zCells));
-
             auto isKernel = this->kernelTypeSlot.Param<core::param::EnumParam>()->Value() != trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST;
             if (!isKernel) {
-                auto index = (zCell * yCells + yCell) * xCells + xCell;
+                auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm) * xCells));
+                auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm) * yCells));
+                auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm) * zCells));
+
+                // Check if we are inside the volume
+                if (xBounded < 0 || xBounded >= xCells ||
+                    yBounded < 0 || yBounded >= yCells ||
+                    zBounded < 0 || zBounded >= zCells) {
+                    continue;
+                }
+
+                auto const index = (zBounded * yCells + yBounded) * xCells + xBounded;
                 this->volume[index] += 1.0f;
             } else {
                 for (auto dz = -kernelCellSpan; dz <= kernelCellSpan; ++dz) {
                     for (auto dy = -kernelCellSpan; dy <= kernelCellSpan; ++dy) {
                         for (auto dx = -kernelCellSpan; dx <= kernelCellSpan; ++dx) {
-                            auto const xBounded = std::round(applyBoundary(xNorm + static_cast<float>(dx) / xCells) * xCells);
-                            auto const yBounded = std::round(applyBoundary(yNorm + static_cast<float>(dy) / yCells) * yCells);
-                            auto const zBounded = std::round(applyBoundary(zNorm + static_cast<float>(dz) / zCells) * zCells);
+                            auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm + static_cast<float>(dx) / xCells) * xCells));
+                            auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm + static_cast<float>(dy) / yCells) * yCells));
+                            auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm + static_cast<float>(dz) / zCells) * zCells));
                             
                             // Check if we are inside the volume
                             if (xBounded < 0 || xBounded >= xCells ||
@@ -345,7 +370,7 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
                                 continue;
                             }
 
-                            auto const index = (static_cast<size_t>(zBounded) * yCells + static_cast<size_t>(yBounded)) * xCells + static_cast<size_t>(xBounded);
+                            auto const index = (zBounded * yCells + yBounded) * xCells + xBounded;
                             // FIXME use offset to cell vertex
                             auto const dist = lengthFunction(dx/voxelSideLength, dy/voxelSideLength, dz/voxelSideLength);
                             auto const weight = kernel(dist);
@@ -362,7 +387,20 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
 
 bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiParticleDataCall* caller) {
     auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
-    auto const isWrapping = this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value() == trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP;
+
+    auto isWrapping = false;
+    switch (this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value())
+    {
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP:
+        megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Clamp boundary not supported for natural neighborhood");
+        return false;
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP:
+        isWrapping = true;
+        break;
+    case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP:
+        isWrapping = false;
+        break;
+    }
     auto voroContainer = voro::container(bbox.Left(), bbox.Right(),
                                          bbox.Bottom(), bbox.Top(),
                                          bbox.Back(), bbox.Front(),
@@ -394,12 +432,10 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
     std::function<float(float)> kernel;
     switch (this->kernelTypeSlot.Param<core::param::EnumParam>()->Value())
     {
-    default:
     case trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST:
-        kernel = [](float const dist) -> float {
-            return 0.0f;
-        };
-        break;
+        megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Nearest neighbor not supported for natural neighborhood");
+        return false;
+    default:
     case trialvolume::ParticleToVolume::KERNEL_TYPE_BUMP:
         kernel = [kernelRadius](float const dist) -> float {
             return dist <= kernelRadius ? std::exp(-1.0f / (1.0f - std::pow(dist / kernelRadius, 2.0f))) : 0.0f;

@@ -26,6 +26,11 @@ namespace megamol::trialvolume {
 class ParticleToVolume : public core::Module {
 public:
 
+    enum SplattingMethod : int {
+        SPLAT_METHOD_KERNEL = 0,
+        SPLAT_METHOD_NATURAL_NEIGHBOR = 1
+    };
+
     enum KernelType : int {
         KERNEL_TYPE_NEAREST = 0,
         KERNEL_TYPE_BUMP = 1
@@ -134,7 +139,8 @@ private:
      */
     inline bool anythingDirty() const {
         // TODO expand if more parameters are added
-        return this->voxelSizeSlot.IsDirty()
+        return this->splattingMethodSlot.IsDirty()
+            || this->voxelSizeSlot.IsDirty()
             || this->kernelTypeSlot.IsDirty()
             || this->kernelMetricSlot.IsDirty()
             || this->kernelRadiusSlot.IsDirty()
@@ -146,12 +152,16 @@ private:
      */
     inline void resetDirtyFlags() {
         // TODO expand if more parameters are added
+        this->splattingMethodSlot.ResetDirty();
         this->voxelSizeSlot.ResetDirty();
         this->kernelTypeSlot.ResetDirty();
         this->kernelMetricSlot.ResetDirty();
         this->kernelRadiusSlot.ResetDirty();
         this->kernelBoundarySlot.ResetDirty();
     }
+
+    /** The slot specifying the splatting method */
+    core::param::ParamSlot splattingMethodSlot;
 
     /** The slot specifying the kernel type */
     core::param::ParamSlot kernelTypeSlot;
