@@ -19,7 +19,7 @@ adiosDataSource::adiosDataSource()
         , getData("getdata", "Slot to request data from this data source.")
         , filenameSlot("filename", "The path to the ADIOS-based file to load.") {
 
-    this->filenameSlot.SetParameter(new core::param::FilePathParam("", core::param::FilePathParam::Flag_Directory));
+    this->filenameSlot.SetParameter(new core::param::FilePathParam("", core::param::FilePathParam::Flag_Any));
     this->filenameSlot.SetUpdateCallback(&adiosDataSource::filenameChanged);
     this->MakeSlotAvailable(&this->filenameSlot);
 
@@ -435,7 +435,7 @@ bool adiosDataSource::initMPI() {
 vislib::StringA adiosDataSource::getCommandLine(void) {
     vislib::StringA retval;
 
-#ifdef WIN32
+#ifdef _WIN32
     retval = ::GetCommandLineA();
 #else  /* _WIN32 */
     char* arg = nullptr;
