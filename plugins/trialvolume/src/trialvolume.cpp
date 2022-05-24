@@ -8,6 +8,7 @@
 #include "mmcore/utility/plugins/PluginRegister.h"
 
 #include "ParticleToVolume.h"
+#include "vtrFileReader.h"
 
 namespace megamol::trialvolume {
 class TrialVolumePluginInstance : public megamol::core::utility::plugins::AbstractPluginInstance {
@@ -28,6 +29,7 @@ public:
 
         // register modules
         this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
+        this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::vtrFileReader>();
         //
         // TODO: Register your plugin's modules here:
         // this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule1>();
