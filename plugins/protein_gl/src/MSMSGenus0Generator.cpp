@@ -7,7 +7,6 @@
  */
 #include "MSMSGenus0Generator.h"
 #include "protein_calls/ProteinColor.h"
-#include "stdafx.h"
 #include <fstream>
 
 #include "mmcore/param/ColorParam.h"
@@ -17,12 +16,12 @@
 #include "mmcore/param/IntParam.h"
 #include "mmcore/param/StringParam.h"
 #include "mmcore/utility/log/Log.h"
-#include "mmcore/utility/sys/ASCIIFileBuffer.h"
 #include "protein_calls/MolecularDataCall.h"
 #include "protein_calls/PerAtomFloatCall.h"
 #include "vislib/StringConverter.h"
 #include "vislib/StringTokeniser.h"
 #include "vislib/assert.h"
+#include "vislib/sys/ASCIIFileBuffer.h"
 
 
 using namespace megamol;
