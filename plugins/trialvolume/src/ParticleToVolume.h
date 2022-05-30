@@ -193,9 +193,6 @@ private:
     /** The bounding box */
     vislib::math::Cuboid<float> bbox;
 
-    /** Pointer to the sphere parameters. */
-    std::vector<float> spheres;
-
     /** The volume data */
     std::vector<float> volume;
 
