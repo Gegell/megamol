@@ -129,11 +129,11 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                         // Push a quad as 2 triangles
                         quad_buffer.clear();
                         quad_buffer.push_back(this->toFlatIndex(x - 1, y - 0, z, metadata));
-                        quad_buffer.push_back(this->toFlatIndex(x - 0, y - 0, z, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x - 0, y - 0, z, metadata));
+                        quad_buffer.push_back(this->toFlatIndex(x - 0, y - 0, z, metadata));
+                        quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x - 0, y - 1, z, metadata));
-                        quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                         // Reverse if other is inside
                         if (level1 < 0.0f) {
                             this->index_buffer->insert(this->index_buffer->end(), quad_buffer.rbegin(), quad_buffer.rend());
@@ -169,11 +169,11 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                         // Push a quad as 2 triangles
                         quad_buffer.clear();
                         quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 0, metadata));
-                        quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 0, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 0, metadata));
+                        quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 0, metadata));
+                        quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                         quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 1, metadata));
-                        quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                         // Reverse if other is inside
                         if (level1 < 0.0f) {
                             this->index_buffer->insert(this->index_buffer->end(), quad_buffer.rbegin(), quad_buffer.rend());
