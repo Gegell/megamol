@@ -65,7 +65,7 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
 
     triangleMeshCall->set_vertices(this->vertex_buffer);
     triangleMeshCall->set_indices(this->index_buffer);
-    //triangleMeshCall->set_normals(this->normal_buffer);
+    triangleMeshCall->set_normals(this->normal_buffer);
     triangleMeshCall->set_bounding_box(bbox);
     triangleMeshCall->set_dimension(mesh::TriangleMeshCall::dimension_t::THREE);
     triangleMeshCall->SetDataHash(this->dataHash);
@@ -96,6 +96,16 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                 this->vertex_buffer->push_back((x + 0.5f) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
                 this->vertex_buffer->push_back((y + 0.5f) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1]);
                 this->vertex_buffer->push_back((z + 0.5f) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2]);
+
+                // FIXME TEMPORARY: Compute the normals via forward differencing
+                auto const& voxel = volumeDataCall.GetAbsoluteVoxelValue(x, y, z);
+                auto const dx = volumeDataCall.GetAbsoluteVoxelValue(x+1, y, z) - voxel;
+                auto const dy = volumeDataCall.GetAbsoluteVoxelValue(x, y+1, z) - voxel;
+                auto const dz = volumeDataCall.GetAbsoluteVoxelValue(x, y, z+1) - voxel;
+                auto const length = std::sqrt(dx*dx + dy*dy + dz*dz);
+                this->normal_buffer->push_back(dx / length);
+                this->normal_buffer->push_back(dy / length);
+                this->normal_buffer->push_back(dz / length);
             }
         }
     }
