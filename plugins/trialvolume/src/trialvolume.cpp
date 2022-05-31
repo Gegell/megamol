@@ -9,6 +9,7 @@
 
 #include "ParticleToVolume.h"
 #include "vtrFileReader.h"
+#include "DualContouring.h"
 
 namespace megamol::trialvolume {
 class TrialVolumePluginInstance : public megamol::core::utility::plugins::AbstractPluginInstance {
@@ -30,6 +31,7 @@ public:
         // register modules
         this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
         this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::vtrFileReader>();
+        this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
         //
         // TODO: Register your plugin's modules here:
         // this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule1>();
