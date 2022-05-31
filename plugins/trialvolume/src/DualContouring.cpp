@@ -74,13 +74,13 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
         this->normal_buffer->clear();
 
         // Compute the vertices
-        for (auto z = 0u; z < metadata->Extents[2]-1; ++z) {
-            for (auto y = 0u; y < metadata->Extents[1]-1; ++y) {
-                for (auto x = 0u; x < metadata->Extents[0]-1; ++x) {
+        for (auto z = 0u; z < metadata->Resolution[2]-1; ++z) {
+            for (auto y = 0u; y < metadata->Resolution[1]-1; ++y) {
+                for (auto x = 0u; x < metadata->Resolution[0]-1; ++x) {
                     // FIXME Assume the coordinates are uniformly spaced
-                    this->vertex_buffer->push_back((x + 0.5f) * metadata->Resolution[0] / metadata->Extents[0] + metadata->Origin[0]);
-                    this->vertex_buffer->push_back((y + 0.5f) * metadata->Resolution[1] / metadata->Extents[1] + metadata->Origin[1]);
-                    this->vertex_buffer->push_back((z + 0.5f) * metadata->Resolution[2] / metadata->Extents[2] + metadata->Origin[2]);
+                    this->vertex_buffer->push_back((x + 0.5f) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
+                    this->vertex_buffer->push_back((y + 0.5f) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1]);
+                    this->vertex_buffer->push_back((z + 0.5f) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2]);
                 }
             }
         }
@@ -96,9 +96,9 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
         // Compute the triangles
         auto isoLevel = this->isoLevelSlot.Param<core::param::FloatParam>()->Value();
         auto quad_buffer = std::vector<unsigned int>();
-        for (auto z = 0u; z < metadata->Extents[2] - 1; ++z) {
-            for (auto y = 0u; y < metadata->Extents[1] - 1; ++y) {
-                for (auto x = 0u; x < metadata->Extents[0] - 1; ++x) {
+        for (auto z = 0u; z < metadata->Resolution[2] - 1; ++z) {
+            for (auto y = 0u; y < metadata->Resolution[1] - 1; ++y) {
+                for (auto x = 0u; x < metadata->Resolution[0] - 1; ++x) {
                     if (x > 0 && y > 0) {
                         auto level1 = volumeDataCall->GetRelativeVoxelValue(x, y, z) - isoLevel;
                         auto level2 = volumeDataCall->GetRelativeVoxelValue(x, y, z + 1) - isoLevel;
@@ -109,8 +109,8 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y - 0, z, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y - 0, z, metadata));
-                            quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y - 1, z, metadata));
+                            quad_buffer.push_back(this->toFlatIndex(x - 1, y - 1, z, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
                                 this->index_buffer->insert(this->index_buffer->end(), quad_buffer.rbegin(), quad_buffer.rend());
@@ -129,8 +129,8 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y, z - 0, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 1, y, z - 1, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y, z - 0, metadata));
-                            quad_buffer.push_back(this->toFlatIndex(x - 1, y, z - 1, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x - 0, y, z - 1, metadata));
+                            quad_buffer.push_back(this->toFlatIndex(x - 1, y, z - 1, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
                                 this->index_buffer->insert(this->index_buffer->end(), quad_buffer.rbegin(), quad_buffer.rend());
@@ -149,8 +149,8 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
                             quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 0, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 0, metadata));
-                            quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                             quad_buffer.push_back(this->toFlatIndex(x, y - 0, z - 1, metadata));
+                            quad_buffer.push_back(this->toFlatIndex(x, y - 1, z - 1, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
                                 this->index_buffer->insert(this->index_buffer->end(), quad_buffer.rbegin(), quad_buffer.rend());

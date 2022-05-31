@@ -121,7 +121,7 @@ private:
 
     // TODO move to seperate util file
     inline size_t toFlatIndex(size_t x, size_t y, size_t z, const geocalls::VolumetricDataCall::Metadata* metadata) {
-        return x + y * metadata->Extents[0] + z * metadata->Extents[0] * metadata->Extents[1];
+        return x + (y + z * (metadata->Resolution[1] - 1)) * (metadata->Resolution[0] - 1);
     }
 
 
