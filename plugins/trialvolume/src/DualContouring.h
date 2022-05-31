@@ -114,6 +114,11 @@ private:
         isoLevelSlot.ResetDirty();
     }
 
+    /**
+     * Re-computes the surface along the iso line.
+     */
+    bool computeSurface(geocalls::VolumetricDataCall& volumeDataCall);
+
     // TODO move to seperate util file
     inline bool sameSign(float a, float b) {
         return (a >= 0.0f) == (b >= 0.0f);
