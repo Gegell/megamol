@@ -95,7 +95,7 @@ Eigen::Vector3f trialvolume::DualContouring::forwardDiffNormalAtVolumePoint(
 Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
     const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall& volumeDataCall) {
     // HACK just return the center of the cell for now. :(
-    return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
+    // return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
 
     auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
 
@@ -183,16 +183,17 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
         b(i) = edge_surface_points.row(i).dot(normals.row(i));
     }
 
-    auto pos = normals.fullPivHouseholderQr().solve(b);
-    // pos.cwiseMax(Eigen::Vector3f(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
-    // pos.cwiseMin(Eigen::Vector3f(static_cast<float>(x + 1), static_cast<float>(y + 1), static_cast<float>(z + 1)));
-
+    // auto pos = normals.fullPivHouseholderQr().solve(b);
     // BUG currently outputting a nan/inf position from the solver.
     // I don't quite get why this is happening. Seperate CAS showed it should be resolvable / not explode.
 
+    auto pos = (normals.transpose() * normals).ldlt().solve(normals.transpose() * b);
+
+    auto constrained = pos.cwiseMax(Eigen::Vector3i(x, y, z).cast<float>()).cwiseMin(Eigen::Vector3i(x + 1, y + 1, z + 1).cast<float>());
+
     // std::cout << "pos: " << pos.transpose() << "\tb: " << b.transpose() << std::endl;
     // std::cout << "normals: " << normals.transpose() << std::endl;
-    return pos;
+    return constrained;
 }
 
 float trialvolume::DualContouring::zeroCrossingLocation(const float level1, const float level2) {
