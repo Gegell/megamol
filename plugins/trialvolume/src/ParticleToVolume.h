@@ -189,9 +189,6 @@ private:
     /** The last hash of the particle data */
     std::size_t inDataHash;
 
-    /** The bounding box */
-    vislib::math::Cuboid<float> bbox;
-
     /** The volume data */
     std::vector<float> volume;
 
