@@ -4,12 +4,12 @@
  * All rights reserved.
  */
 
-#include "mmcore/utility/plugins/AbstractPluginInstance.h"
-#include "mmcore/utility/plugins/PluginRegister.h"
-
 #include "ParticleToVolume.h"
 #include "vtrFileReader.h"
 #include "DualContouring.h"
+
+#include "mmcore/utility/plugins/AbstractPluginInstance.h"
+#include "mmcore/utility/plugins/PluginRegister.h"
 
 namespace megamol::trialvolume {
 class TrialVolumePluginInstance : public megamol::core::utility::plugins::AbstractPluginInstance {

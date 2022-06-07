@@ -1,11 +1,11 @@
 #include "vtrFileReader.h"
 
+#include <iostream>
+#include <fstream>
+
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/FilePathParam.h"
 #include "mmcore/param/IntParam.h"
-
-#include <iostream>
-#include <fstream>
 
 using namespace megamol;
 

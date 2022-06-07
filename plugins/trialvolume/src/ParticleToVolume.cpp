@@ -1,13 +1,13 @@
 
 #include "ParticleToVolume.h"
 
+#include <functional>
+
+#include <voro++.hh>
+
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/EnumParam.h"
-
-#include "voro++.hh"
-
-#include <functional>
 
 using namespace megamol;
 

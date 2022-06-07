@@ -8,13 +8,13 @@
 #ifndef MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
 #define MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
 
+#include <vector>
+
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
 #include "mmcore/param/ParamSlot.h"
 #include "mmcore/Module.h"
-
 #include "geometry_calls/VolumetricDataCall.h"
-#include <vector>
 
 namespace megamol::trialvolume {
 

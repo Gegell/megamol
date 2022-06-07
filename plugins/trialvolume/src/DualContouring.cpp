@@ -1,10 +1,10 @@
 #include "DualContouring.h"
 
+#include <vector>
+
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mesh/TriangleMeshCall.h"
 #include "mmcore/param/FloatParam.h"
-
-#include <vector>
 
 using namespace megamol;
 
