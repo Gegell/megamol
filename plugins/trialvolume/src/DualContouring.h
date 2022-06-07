@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <Eigen/Dense>
+
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
@@ -125,6 +127,20 @@ private:
         return x + (y + z * (metadata->Resolution[1] - 1)) * (metadata->Resolution[0] - 1);
     }
 
+    /**
+     * Compute the intersection point on the edge for 2 given relative heights.
+     */
+    float zeroCrossingLocation(float level1, float level2);
+
+    /**
+     * Compute the approximate normal at a point in the volume utilizing the forward difference.
+     */
+    Eigen::Vector3f forwardDiffNormalAtVolumePoint(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall &volumeDataCall); 
+
+    /**
+     * Find the best position in the cell to place the vertex at.
+     */
+    Eigen::Vector3f findBestVertex(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall &volumeDataCall);
 
     /** The slot specifying the iso surface level */
     core::param::ParamSlot iso_level_slot_;

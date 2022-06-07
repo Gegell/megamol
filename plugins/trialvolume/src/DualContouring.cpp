@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <Eigen/Dense>
+
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mesh/TriangleMeshCall.h"
 #include "mmcore/param/FloatParam.h"
@@ -73,6 +75,130 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
     return true;
 }
 
+Eigen::Vector3f trialvolume::DualContouring::forwardDiffNormalAtVolumePoint(
+    size_t x, size_t y, size_t z, const geocalls::VolumetricDataCall& volumeDataCall) {
+    // Clamp the indices to the volume dimensions
+    x = std::clamp(x, 0ull, volumeDataCall.GetMetadata()->Resolution[0] - 2u);
+    y = std::clamp(y, 0ull, volumeDataCall.GetMetadata()->Resolution[1] - 2u);
+    z = std::clamp(z, 0ull, volumeDataCall.GetMetadata()->Resolution[2] - 2u);
+
+    auto const vol = volumeDataCall.GetAbsoluteVoxelValue(x, y, z);
+
+    Eigen::Vector3f normal;
+    normal << volumeDataCall.GetAbsoluteVoxelValue(x + 1, y, z) - vol,
+        volumeDataCall.GetAbsoluteVoxelValue(x, y + 1, z) - vol,
+        volumeDataCall.GetAbsoluteVoxelValue(x, y, z + 1) - vol;
+    normal.normalize();
+    return normal;
+}
+
+Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
+    const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall& volumeDataCall) {
+    // HACK just return the center of the cell for now. :(
+    return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
+
+    auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
+
+    Eigen::MatrixX3f edge_surface_points(12, 3);
+    Eigen::MatrixX3f normals(12, 3);
+
+    auto total_edges = 0;
+    // Iterate over all edges of the voxel
+    for (auto dy = 0; dy <= 1; ++dy) {
+        for (auto dx = 0; dx <= 1; ++dx) {
+            auto level1 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + dy, z) - isoLevel;
+            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + dy, z + 1) - isoLevel;
+            if (!sameSign(level1, level2)) {
+                // Calculate the intersection point
+                auto isoCrossing = zeroCrossingLocation(level1, level2);
+
+                // Approximate the normal on said point
+                Eigen::Vector3f normal1 = forwardDiffNormalAtVolumePoint(x + dx, y + dy, z, volumeDataCall);
+                Eigen::Vector3f normal2 = forwardDiffNormalAtVolumePoint(x + dx, y + dy, z + 1, volumeDataCall);
+
+                Eigen::Vector3f pos = Eigen::Vector3f(x + dx, y + dy, z) + isoCrossing * Eigen::Vector3f(0, 0, 1);
+                // Eigen::Vector3f normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
+                // normal.normalize();
+
+                edge_surface_points.row(total_edges) = pos;
+                normals.row(total_edges) = normal1;
+                total_edges++;
+            }
+        }
+    }
+    for (auto dz = 0; dz <= 1; ++dz) {
+        for (auto dx = 0; dx <= 1; ++dx) {
+            auto level1 = volumeDataCall.GetRelativeVoxelValue(x + dx, y, z + dz) - isoLevel;
+            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + 1, z + dz) - isoLevel;
+            if (!sameSign(level1, level2)) {
+                // Calculate the intersection point
+                auto isoCrossing = zeroCrossingLocation(level1, level2);
+
+                // Approximate the normal on said point
+                auto normal1 = forwardDiffNormalAtVolumePoint(x + dx, y, z + dz, volumeDataCall);
+                auto normal2 = forwardDiffNormalAtVolumePoint(x + dx, y + 1, z + dz, volumeDataCall);
+
+                auto pos = Eigen::Vector3f(x + dx, y, z + dz) + isoCrossing * Eigen::Vector3f(0, 1, 0);
+                // auto normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
+                // normal.normalize();
+
+                edge_surface_points.row(total_edges) = pos;
+                normals.row(total_edges) = normal1;
+                total_edges++;
+            }
+        }
+    }
+    for (auto dz = 0; dz <= 1; ++dz) {
+        for (auto dy = 0; dy <= 1; ++dy) {
+            auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y + dy, z + dz) - isoLevel;
+            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + 1, y + dy, z + dz) - isoLevel;
+            if (!sameSign(level1, level2)) {
+                // Calculate the intersection point
+                auto isoCrossing = zeroCrossingLocation(level1, level2);
+
+                // Approximate the normal on said point
+                auto normal1 = forwardDiffNormalAtVolumePoint(x, y + dy, z + dz, volumeDataCall);
+                auto normal2 = forwardDiffNormalAtVolumePoint(x + 1, y + dy, z + dz, volumeDataCall);
+
+                auto pos = Eigen::Vector3f(x, y + dy, z + dz) + isoCrossing * Eigen::Vector3f(1, 0, 0);
+                // auto normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
+                // normal.normalize();
+
+                edge_surface_points.row(total_edges) = pos;
+                normals.row(total_edges) = normal1;
+                total_edges++;
+            }
+        }
+    }
+
+    if (total_edges == 0) {
+        return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
+    }
+    edge_surface_points.conservativeResize(total_edges, Eigen::NoChange);
+    normals.conservativeResize(total_edges, Eigen::NoChange);
+
+    // Solve the least squares problem
+    Eigen::VectorXf b(edge_surface_points.rows());
+    for (auto i = 0; i < edge_surface_points.rows(); ++i) {
+        b(i) = edge_surface_points.row(i).dot(normals.row(i));
+    }
+
+    auto pos = normals.fullPivHouseholderQr().solve(b);
+    // pos.cwiseMax(Eigen::Vector3f(static_cast<float>(x), static_cast<float>(y), static_cast<float>(z)));
+    // pos.cwiseMin(Eigen::Vector3f(static_cast<float>(x + 1), static_cast<float>(y + 1), static_cast<float>(z + 1)));
+
+    // BUG currently outputting a nan/inf position from the solver.
+    // I don't quite get why this is happening. Seperate CAS showed it should be resolvable / not explode.
+
+    // std::cout << "pos: " << pos.transpose() << "\tb: " << b.transpose() << std::endl;
+    // std::cout << "normals: " << normals.transpose() << std::endl;
+    return pos;
+}
+
+float trialvolume::DualContouring::zeroCrossingLocation(const float level1, const float level2) {
+    return (0.0f - level1) / (level2 - level1);
+}
+
 bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& volumeDataCall) {
 
     volumeDataCall(geocalls::VolumetricDataCall::IDX_GET_DATA);
@@ -93,22 +219,20 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
         for (auto y = 0u; y < metadata->Resolution[1] - 1; ++y) {
             for (auto x = 0u; x < metadata->Resolution[0] - 1; ++x) {
                 // FIXME Assume the coordinates are uniformly spaced
+
+                auto pos = findBestVertex(x, y, z, volumeDataCall);
                 vertex_buffer_->push_back(
-                    (x + 0.5f) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
+                    pos(0) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
                 vertex_buffer_->push_back(
-                    (y + 0.5f) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1]);
+                    pos(1) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1]);
                 vertex_buffer_->push_back(
-                    (z + 0.5f) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2]);
+                    pos(2) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2]);
 
                 // FIXME TEMPORARY: Compute the normals via forward differencing
-                auto const& voxel = volumeDataCall.GetAbsoluteVoxelValue(x, y, z);
-                auto const dx = volumeDataCall.GetAbsoluteVoxelValue(x + 1, y, z) - voxel;
-                auto const dy = volumeDataCall.GetAbsoluteVoxelValue(x, y + 1, z) - voxel;
-                auto const dz = volumeDataCall.GetAbsoluteVoxelValue(x, y, z + 1) - voxel;
-                auto const length = std::sqrt(dx * dx + dy * dy + dz * dz);
-                normal_buffer_->push_back(dx / length);
-                normal_buffer_->push_back(dy / length);
-                normal_buffer_->push_back(dz / length);
+                auto normal = forwardDiffNormalAtVolumePoint(x, y, z, volumeDataCall);
+                normal_buffer_->push_back(normal(0));
+                normal_buffer_->push_back(normal(1));
+                normal_buffer_->push_back(normal(2));
             }
         }
     }

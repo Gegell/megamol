@@ -11,6 +11,7 @@ megamol_plugin(trailvolume
     # plugin2
   DEPENDS_EXTERNALS
     voro++
+    Eigen
     # external2
   )
 
