@@ -3,13 +3,11 @@
 
 #include <vector>
 
-#include "geometry_calls/MultiParticleDataCall.h"
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
 #include "mmcore/param/ParamSlot.h"
-#include "vislib/String.h"
 #include "vislib/math/Cuboid.h"
 
 namespace megamol::trialvolume {
