@@ -5,7 +5,7 @@
  */
 
 #include "ParticleToVolume.h"
-#include "vtrFileReader.h"
+#include "VtrFileReader.h"
 #include "DualContouring.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
@@ -29,21 +29,21 @@ public:
     void registerClasses() override {
 
         // register modules
-        this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
-        this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::vtrFileReader>();
-        this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::VtrFileReader>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
         //
         // TODO: Register your plugin's modules here:
-        // this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule1>();
-        // this->module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule2>();
+        // module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule1>();
+        // module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule2>();
         // ...
         //
 
         // register calls
 
         // TODO: Register your plugin's calls here:
-        // this->call_descriptions.RegisterAutoDescription<megamol::trialvolume::MyCall1>();
-        // this->call_descriptions.RegisterAutoDescription<megamol::trialvolume::MyCall2>();
+        // call_descriptions.RegisterAutoDescription<megamol::trialvolume::MyCall1>();
+        // call_descriptions.RegisterAutoDescription<megamol::trialvolume::MyCall2>();
         // ...
         //
     }

@@ -20,82 +20,82 @@ void trialvolume::ParticleToVolume::release(void) {
 }
 
 trialvolume::ParticleToVolume::ParticleToVolume(void) 
-        : splattingMethodSlot("SplattingMethod", "The splatting method to use")
-        , voxelSizeSlot("voxelSize", "Voxel size")
-        , kernelTypeSlot("kernelType", "Kernel type")
-        , kernelMetricSlot("kernelMetric", "Kernel metric")
-        , kernelRadiusSlot("kernelRadius", "Kernel radius")
-        , kernelBoundarySlot("kernelBoundary", "Kernel boundary handling")
-        , outDataSlot("outData", "Provides splatted particle volume")
-        , inParticleDataSlot("inParticleData", "Takes the particle data") {
+        : splatting_method_slot_("SplattingMethod", "The splatting method to use")
+        , voxel_size_slot_("voxelSize", "Voxel size")
+        , kernel_type_slot_("kernelType", "Kernel type")
+        , kernel_metric_slot_("kernelMetric", "Kernel metric")
+        , kernel_radius_slot_("kernelRadius", "Kernel radius")
+        , kernel_boundary_slot_("kernelBoundary", "Kernel boundary handling")
+        , out_data_slot_("outData", "Provides splatted particle volume")
+        , in_particle_data_slot_("inParticleData", "Takes the particle data") {
     // Setup volumetric data output slot
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_DATA),
         &ParticleToVolume::getDataCallback);
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_EXTENTS),
         &ParticleToVolume::getExtentCallback);
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_METADATA),
         &ParticleToVolume::getExtentCallback);
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_START_ASYNC),
         &ParticleToVolume::dummyCallback);
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_STOP_ASYNC),
         &ParticleToVolume::dummyCallback);
-    this->outDataSlot.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_TRY_GET_DATA),
         &ParticleToVolume::dummyCallback);
-    this->MakeSlotAvailable(&this->outDataSlot);
+    MakeSlotAvailable(&out_data_slot_);
 
     // Setup particle data input slot
-    this->inParticleDataSlot.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
-    this->MakeSlotAvailable(&this->inParticleDataSlot);
+    in_particle_data_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
+    MakeSlotAvailable(&in_particle_data_slot_);
 
     // Setup voxel size slot
-    this->voxelSizeSlot << new core::param::FloatParam(
+    voxel_size_slot_ << new core::param::FloatParam(
         1.0f, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::max(), 0.1f);
-    this->MakeSlotAvailable(&this->voxelSizeSlot);
+    MakeSlotAvailable(&voxel_size_slot_);
 
     // Setup kernel type slot
     auto* ktp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST);
     ktp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST, "Nearest");
     ktp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_TYPE_BUMP, "Bump");
-    this->kernelTypeSlot << ktp;
-    this->MakeSlotAvailable(&this->kernelTypeSlot);
+    kernel_type_slot_ << ktp;
+    MakeSlotAvailable(&kernel_type_slot_);
 
     // Setup kernel metric slot
     auto* kmp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN);
     kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN, "Euclidean");
     kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_MANHATTAN, "Manhattan");
     kmp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_METRIC_CHEBYSHEV, "Chebyshev");
-    this->kernelMetricSlot << kmp;
-    this->MakeSlotAvailable(&this->kernelMetricSlot);
+    kernel_metric_slot_ << kmp;
+    MakeSlotAvailable(&kernel_metric_slot_);
 
     // Setup kernel radius slot
-    this->kernelRadiusSlot << new core::param::FloatParam(
+    kernel_radius_slot_ << new core::param::FloatParam(
         1.0f, std::numeric_limits<float>::epsilon(), std::numeric_limits<float>::max(), 0.1f);
-    this->MakeSlotAvailable(&this->kernelRadiusSlot);
+    MakeSlotAvailable(&kernel_radius_slot_);
 
     // Setup kernel boundary slot
     auto* kbp = new core::param::EnumParam(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP);
     kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLIP, "Clip");
     kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP, "Clamp");
     kbp->SetTypePair(trialvolume::ParticleToVolume::KERNEL_BOUNDARY_WRAP, "Wrap");
-    this->kernelBoundarySlot << kbp;
-    this->MakeSlotAvailable(&this->kernelBoundarySlot);
+    kernel_boundary_slot_ << kbp;
+    MakeSlotAvailable(&kernel_boundary_slot_);
 
     // Setup splatting method slot
     auto* spm = new core::param::EnumParam(trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL);
     spm->SetTypePair(trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL, "Kernel");
     spm->SetTypePair(trialvolume::ParticleToVolume::SPLAT_METHOD_NATURAL_NEIGHBOR, "Natural Neighbor");
-    this->splattingMethodSlot << spm;
-    this->MakeSlotAvailable(&this->splattingMethodSlot);
+    splatting_method_slot_ << spm;
+    MakeSlotAvailable(&splatting_method_slot_);
 }
 
 trialvolume::ParticleToVolume::~ParticleToVolume(void) {
-    this->Release();
+    Release();
 }
 
 bool trialvolume::ParticleToVolume::dummyCallback(core::Call& caller) {
@@ -103,7 +103,7 @@ bool trialvolume::ParticleToVolume::dummyCallback(core::Call& caller) {
 }
 
 bool trialvolume::ParticleToVolume::getDataCallback(core::Call& caller) {
-    auto* inMultiParticleDataCall = this->inParticleDataSlot.CallAs<geocalls::MultiParticleDataCall>();
+    auto* inMultiParticleDataCall = in_particle_data_slot_.CallAs<geocalls::MultiParticleDataCall>();
     if (inMultiParticleDataCall == nullptr) {
         return false;
     }
@@ -126,71 +126,71 @@ bool trialvolume::ParticleToVolume::getDataCallback(core::Call& caller) {
         } while (inMultiParticleDataCall->FrameID() != frameID);
 #endif
         // Only update if hash is different / parameters changed
-        if (this->time != inMultiParticleDataCall->FrameID() 
-            || inMultiParticleDataCall->DataHash() != this->inDataHash
-            || this->anythingDirty()
+        if (time_ != inMultiParticleDataCall->FrameID() 
+            || inMultiParticleDataCall->DataHash() != in_data_hash_
+            || anythingDirty()
             ) {
-            if (!this->createVolume(inMultiParticleDataCall)) {
+            if (!createVolume(inMultiParticleDataCall)) {
                 return false;
             }
-            this->inDataHash = inMultiParticleDataCall->DataHash();
-            this->dataHash++;
-            this->time = inMultiParticleDataCall->FrameID();
-            this->resetDirtyFlags();
+            in_data_hash_ = inMultiParticleDataCall->DataHash();
+            data_hash_++;
+            time_ = inMultiParticleDataCall->FrameID();
+            resetDirtyFlags();
         }
         // Figure out the volume metadata
         auto bbox = inMultiParticleDataCall->AccessBoundingBoxes().ObjectSpaceBBox();
 
-        metadata.Components = 1;
-        metadata.GridType = geocalls::GridType_t::CARTESIAN;
-        metadata.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
-        metadata.ScalarLength = sizeof(float);
+        metadata_.Components = 1;
+        metadata_.GridType = geocalls::GridType_t::CARTESIAN;
+        metadata_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
+        metadata_.ScalarLength = sizeof(float);
 
-        metadata.NumberOfFrames = 1;
+        metadata_.NumberOfFrames = 1;
 
-        metadata.MinValues = new double[1];
-        metadata.MinValues[0] = this->minValue;
-        metadata.MaxValues = new double[1];
-        metadata.MaxValues[0] = this->maxValue;
+        metadata_.MinValues = new double[1];
+        metadata_.MinValues[0] = min_value_;
+        metadata_.MaxValues = new double[1];
+        metadata_.MaxValues[0] = max_value_;
 
-        auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
+        auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
 
-        metadata.Extents[0] = bbox.Width();
-        metadata.Extents[1] = bbox.Height();
-        metadata.Extents[2] = bbox.Depth();
+        metadata_.Extents[0] = bbox.Width();
+        metadata_.Extents[1] = bbox.Height();
+        metadata_.Extents[2] = bbox.Depth();
 
-        metadata.Origin[0] = bbox.Left();
-        metadata.Origin[1] = bbox.Bottom();
-        metadata.Origin[2] = bbox.Back();
+        metadata_.Origin[0] = bbox.Left();
+        metadata_.Origin[1] = bbox.Bottom();
+        metadata_.Origin[2] = bbox.Back();
 
-        metadata.Resolution[0] = static_cast<size_t>(std::ceil(metadata.Extents[0] / voxelSideLength));
-        metadata.Resolution[1] = static_cast<size_t>(std::ceil(metadata.Extents[1] / voxelSideLength));
-        metadata.Resolution[2] = static_cast<size_t>(std::ceil(metadata.Extents[2] / voxelSideLength));
+        metadata_.Resolution[0] = static_cast<size_t>(std::ceil(metadata_.Extents[0] / voxelSideLength));
+        metadata_.Resolution[1] = static_cast<size_t>(std::ceil(metadata_.Extents[1] / voxelSideLength));
+        metadata_.Resolution[2] = static_cast<size_t>(std::ceil(metadata_.Extents[2] / voxelSideLength));
 
-        metadata.SliceDists[0] = new float[0];
-        metadata.SliceDists[0][0] = metadata.Extents[0] / static_cast<float>(metadata.Resolution[0] - 1);
-        metadata.SliceDists[1] = new float[0];
-        metadata.SliceDists[1][0] = metadata.Extents[1] / static_cast<float>(metadata.Resolution[1] - 1);
-        metadata.SliceDists[2] = new float[0];
-        metadata.SliceDists[2][0] = metadata.Extents[2] / static_cast<float>(metadata.Resolution[2] - 1);
+        metadata_.SliceDists[0] = new float[0];
+        metadata_.SliceDists[0][0] = metadata_.Extents[0] / static_cast<float>(metadata_.Resolution[0] - 1);
+        metadata_.SliceDists[1] = new float[0];
+        metadata_.SliceDists[1][0] = metadata_.Extents[1] / static_cast<float>(metadata_.Resolution[1] - 1);
+        metadata_.SliceDists[2] = new float[0];
+        metadata_.SliceDists[2][0] = metadata_.Extents[2] / static_cast<float>(metadata_.Resolution[2] - 1);
         
-        metadata.IsUniform[0] = true;
-        metadata.IsUniform[1] = true;
-        metadata.IsUniform[2] = true;
+        metadata_.IsUniform[0] = true;
+        metadata_.IsUniform[1] = true;
+        metadata_.IsUniform[2] = true;
 
-        outVolumetricDataCall->SetMetadata(&metadata);
+        outVolumetricDataCall->SetMetadata(&metadata_);
 
         // Set the data
-        outVolumetricDataCall->SetFrameID(this->time);
-        outVolumetricDataCall->SetData(this->volume.data());
-        outVolumetricDataCall->SetDataHash(this->dataHash);
+        outVolumetricDataCall->SetFrameID(time_);
+        outVolumetricDataCall->SetData(volume_.data());
+        outVolumetricDataCall->SetDataHash(data_hash_);
     }
 
     return true;
 }
 
 bool trialvolume::ParticleToVolume::getExtentCallback(core::Call& caller) {
-    auto* inMultiParticleDataCall = this->inParticleDataSlot.CallAs<geocalls::MultiParticleDataCall>();
+    auto* inMultiParticleDataCall = in_particle_data_slot_.CallAs<geocalls::MultiParticleDataCall>();
     if (inMultiParticleDataCall == nullptr) {
         return false;
     }
@@ -204,7 +204,7 @@ bool trialvolume::ParticleToVolume::getExtentCallback(core::Call& caller) {
     if (!(*inMultiParticleDataCall)(1)) {
         // What is this ? Why pass function <1>?
         megamol::core::utility::log::Log::DefaultLog.WriteError(
-            "ParticlesToDensity: could not get current frame extents (%u)", time - 1);
+            "ParticlesToDensity: could not get current frame extents (%u)", time_ - 1);
         return false;
     }
 
@@ -224,36 +224,36 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
 
     auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
-    auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
+    auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
 
-    this->xCells = static_cast<size_t>(std::ceil(bbox.Width() / voxelSideLength));
-    this->yCells = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
-    this->zCells = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
+    x_cells_ = static_cast<size_t>(std::ceil(bbox.Width() / voxelSideLength));
+    y_cells_ = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
+    z_cells_ = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
 
-    this->volume.resize(xCells * yCells * zCells);
-    std::fill(this->volume.begin(), this->volume.end(), 0.0f);
+    volume_.resize(x_cells_ * y_cells_ * z_cells_);
+    std::fill(volume_.begin(), volume_.end(), 0.0f);
 
     auto success = false;
-    switch (this->splattingMethodSlot.Param<core::param::EnumParam>()->Value()) {
+    switch (splatting_method_slot_.Param<core::param::EnumParam>()->Value()) {
         case trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL:
-            success = this->computeKernel(caller);
+            success = computeKernel(caller);
             break;
         case trialvolume::ParticleToVolume::SPLAT_METHOD_NATURAL_NEIGHBOR:
-            success = this->computeNaturalNeighborhood(caller);
+            success = computeNaturalNeighborhood(caller);
             break;
     }
     if (!success) {
         megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: could not create volume");
     }
 
-    auto [min, max] = std::minmax_element(this->volume.begin(), this->volume.end());
-    this->minValue = *min;
-    this->maxValue = *max;
+    auto [min, max] = std::minmax_element(volume_.begin(), volume_.end());
+    min_value_ = *min;
+    max_value_ = *max;
 
     const auto endTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> diffMillis = endTime - startTime;
     megamol::core::utility::log::Log::DefaultLog.WriteInfo(
-        "ParticleToVolume: creation of %u x %u x %u volume from %llu particles took %f ms.", xCells, yCells, zCells,
+        "ParticleToVolume: creation of %u x %u x %u volume from %llu particles took %f ms.", x_cells_, y_cells_, z_cells_,
         totalParticles, diffMillis.count());
     return true;
 }
@@ -261,13 +261,13 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
 bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCall* caller) {
     auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
-    auto const voxelSideLength = this->voxelSizeSlot.Param<core::param::FloatParam>()->Value();
+    auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
 
-    auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
+    auto const kernelRadius = kernel_radius_slot_.Param<core::param::FloatParam>()->Value();
     auto const kernelCellSpan = static_cast<int>(std::ceil(kernelRadius / voxelSideLength));
 
     std::function<float(float, float, float)> lengthFunction;
-    switch (this->kernelMetricSlot.Param<core::param::EnumParam>()->Value())
+    switch (kernel_metric_slot_.Param<core::param::EnumParam>()->Value())
     {
     default:
     case trialvolume::ParticleToVolume::KERNEL_METRIC_EUCLIDEAN:
@@ -288,7 +288,7 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
     }
 
     std::function<float(float)> kernel;
-    switch (this->kernelTypeSlot.Param<core::param::EnumParam>()->Value())
+    switch (kernel_type_slot_.Param<core::param::EnumParam>()->Value())
     {
     default:
     case trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST:
@@ -304,7 +304,7 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
     }
 
     std::function<float(float)> applyBoundary;
-    switch (this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value())
+    switch (kernel_boundary_slot_.Param<core::param::EnumParam>()->Value())
     {
     case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP:
         applyBoundary = [](float const value) -> float {
@@ -340,42 +340,42 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
             auto yNorm = (y - bbox.Bottom()) / bbox.Height();
             auto zNorm = (z - bbox.Back()) / bbox.Depth();
 
-            auto isKernel = this->kernelTypeSlot.Param<core::param::EnumParam>()->Value() != trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST;
+            auto isKernel = kernel_type_slot_.Param<core::param::EnumParam>()->Value() != trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST;
             if (!isKernel) {
-                auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm) * xCells));
-                auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm) * yCells));
-                auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm) * zCells));
+                auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm) * x_cells_));
+                auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm) * y_cells_));
+                auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm) * z_cells_));
 
                 // Check if we are inside the volume
-                if (xBounded < 0 || xBounded >= xCells ||
-                    yBounded < 0 || yBounded >= yCells ||
-                    zBounded < 0 || zBounded >= zCells) {
+                if (xBounded < 0 || xBounded >= x_cells_ ||
+                    yBounded < 0 || yBounded >= y_cells_ ||
+                    zBounded < 0 || zBounded >= z_cells_) {
                     continue;
                 }
 
-                auto const index = (zBounded * yCells + yBounded) * xCells + xBounded;
-                this->volume[index] += 1.0f;
+                auto const index = (zBounded * y_cells_ + yBounded) * x_cells_ + xBounded;
+                volume_[index] += 1.0f;
             } else {
                 for (auto dz = -kernelCellSpan; dz <= kernelCellSpan; ++dz) {
                     for (auto dy = -kernelCellSpan; dy <= kernelCellSpan; ++dy) {
                         for (auto dx = -kernelCellSpan; dx <= kernelCellSpan; ++dx) {
-                            auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm + static_cast<float>(dx) / xCells) * xCells));
-                            auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm + static_cast<float>(dy) / yCells) * yCells));
-                            auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm + static_cast<float>(dz) / zCells) * zCells));
+                            auto const xBounded = static_cast<size_t>(std::round(applyBoundary(xNorm + static_cast<float>(dx) / x_cells_) * x_cells_));
+                            auto const yBounded = static_cast<size_t>(std::round(applyBoundary(yNorm + static_cast<float>(dy) / y_cells_) * y_cells_));
+                            auto const zBounded = static_cast<size_t>(std::round(applyBoundary(zNorm + static_cast<float>(dz) / z_cells_) * z_cells_));
                             
                             // Check if we are inside the volume
-                            if (xBounded < 0 || xBounded >= xCells ||
-                                yBounded < 0 || yBounded >= yCells ||
-                                zBounded < 0 || zBounded >= zCells) {
+                            if (xBounded < 0 || xBounded >= x_cells_ ||
+                                yBounded < 0 || yBounded >= y_cells_ ||
+                                zBounded < 0 || zBounded >= z_cells_) {
                                 continue;
                             }
 
-                            auto const index = (zBounded * yCells + yBounded) * xCells + xBounded;
+                            auto const index = (zBounded * y_cells_ + yBounded) * x_cells_ + xBounded;
                             // FIXME use offset to cell vertex
                             auto const dist = lengthFunction(dx*voxelSideLength, dy*voxelSideLength, dz*voxelSideLength);
                             auto const weight = kernel(dist);
 
-                            this->volume[index] += weight;
+                            volume_[index] += weight;
                         }
                     }
                 }
@@ -389,7 +389,7 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
     auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
     auto isWrapping = false;
-    switch (this->kernelBoundarySlot.Param<core::param::EnumParam>()->Value())
+    switch (kernel_boundary_slot_.Param<core::param::EnumParam>()->Value())
     {
     case trialvolume::ParticleToVolume::KERNEL_BOUNDARY_CLAMP:
         megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Clamp boundary not supported for natural neighborhood");
@@ -428,9 +428,9 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
     std::vector<int> neighbors;
     std::vector<double> weights;
     
-    auto const kernelRadius = this->kernelRadiusSlot.Param<core::param::FloatParam>()->Value();
+    auto const kernelRadius = kernel_radius_slot_.Param<core::param::FloatParam>()->Value();
     std::function<float(float)> kernel;
-    switch (this->kernelTypeSlot.Param<core::param::EnumParam>()->Value())
+    switch (kernel_type_slot_.Param<core::param::EnumParam>()->Value())
     {
     case trialvolume::ParticleToVolume::KERNEL_TYPE_NEAREST:
         megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Nearest neighbor not supported for natural neighborhood");
@@ -443,13 +443,13 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
         break;
     }
 
-    for (auto z = 0; z < zCells; ++z) 
-    for (auto y = 0; y < yCells; ++y) 
-    for (auto x = 0; x < xCells; ++x) {
+    for (auto z = 0; z < z_cells_; ++z) 
+    for (auto y = 0; y < y_cells_; ++y) 
+    for (auto x = 0; x < x_cells_; ++x) {
 
-        auto xNorm = x / static_cast<double>(xCells-1);
-        auto yNorm = y / static_cast<double>(yCells-1);
-        auto zNorm = z / static_cast<double>(zCells-1);
+        auto xNorm = x / static_cast<double>(x_cells_-1);
+        auto yNorm = y / static_cast<double>(y_cells_-1);
+        auto zNorm = z / static_cast<double>(z_cells_-1);
 
         auto xLocal = xNorm * bbox.Width() + bbox.Left();
         auto yLocal = yNorm * bbox.Height() + bbox.Bottom();
@@ -458,7 +458,7 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
         voro::voronoicell_neighbor cell(voroContainer);
         if (voroContainer.compute_ghost_cell(cell, xLocal, yLocal, zLocal)) {
             
-            auto const index = (z * yCells + y) * xCells + x;
+            auto const index = (z * y_cells_ + y) * x_cells_ + x;
             cell.face_areas(weights);
             cell.neighbors(neighbors);
             auto weightSum = 0.0;
@@ -508,7 +508,7 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
             interpolated /= weightSum;
 
             // Apply the rbf
-            this->volume[index] = interpolated;
+            volume_[index] = interpolated;
         }
     }
     return true;

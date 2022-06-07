@@ -16,7 +16,6 @@ namespace megamol::trialvolume {
  */
 class DualContouring : public core::Module {
 public:
-
     /**
      * Answer the name of the objects of this description.
      *
@@ -100,7 +99,7 @@ private:
      */
     inline bool anythingDirty() const {
         // TODO expand if more parameters are added
-        return isoLevelSlot.IsDirty();
+        return iso_level_slot_.IsDirty();
     }
 
     /**
@@ -108,7 +107,7 @@ private:
      */
     inline void resetDirtyFlags() {
         // TODO expand if more parameters are added
-        isoLevelSlot.ResetDirty();
+        iso_level_slot_.ResetDirty();
     }
 
     /**
@@ -128,29 +127,29 @@ private:
 
 
     /** The slot specifying the iso surface level */
-    core::param::ParamSlot isoLevelSlot;
+    core::param::ParamSlot iso_level_slot_;
 
     /** The slot for requesting data */
-    core::CalleeSlot outTriangleSurfaceSlot;
+    core::CalleeSlot out_triangle_surface_slot_;
 
     /** The slot accessing the original volume data */
-    core::CallerSlot inVolumeDataSlot;
+    core::CallerSlot in_volume_data_slot_;
 
     /** The data update hash */
-    std::size_t dataHash = 0;
+    std::size_t data_hash_ = 0;
 
     /** The hash of when the input data was last read */
-    std::size_t inDataHash;
+    std::size_t in_data_hash_;
 
     /** The bounding box */
-    vislib::math::Cuboid<float> bbox;
+    vislib::math::Cuboid<float> bbox_;
 
     /** Last time the data was updated */
-    unsigned int time = 0;
+    unsigned int time_ = 0;
 
     /** The mesh data */
-    std::shared_ptr<std::vector<float>> vertex_buffer, normal_buffer;
-    std::shared_ptr<std::vector<unsigned int>> index_buffer;
+    std::shared_ptr<std::vector<float>> vertex_buffer_, normal_buffer_;
+    std::shared_ptr<std::vector<unsigned int>> index_buffer_;
 };
 
 } // namespace megamol::trialvolume

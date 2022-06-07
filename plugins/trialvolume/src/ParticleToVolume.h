@@ -15,7 +15,6 @@
 #include "mmcore/Module.h"
 #include "mmcore/param/ParamSlot.h"
 #include "vislib/String.h"
-#include "vislib/math/Cuboid.h"
 
 namespace megamol::trialvolume {
 
@@ -138,12 +137,12 @@ private:
      */
     inline bool anythingDirty() const {
         // TODO expand if more parameters are added
-        return this->splattingMethodSlot.IsDirty()
-            || this->voxelSizeSlot.IsDirty()
-            || this->kernelTypeSlot.IsDirty()
-            || this->kernelMetricSlot.IsDirty()
-            || this->kernelRadiusSlot.IsDirty()
-            || this->kernelBoundarySlot.IsDirty();
+        return splatting_method_slot_.IsDirty()
+            || voxel_size_slot_.IsDirty()
+            || kernel_type_slot_.IsDirty()
+            || kernel_metric_slot_.IsDirty()
+            || kernel_radius_slot_.IsDirty()
+            || kernel_boundary_slot_.IsDirty();
     }
 
     /**
@@ -151,67 +150,67 @@ private:
      */
     inline void resetDirtyFlags() {
         // TODO expand if more parameters are added
-        this->splattingMethodSlot.ResetDirty();
-        this->voxelSizeSlot.ResetDirty();
-        this->kernelTypeSlot.ResetDirty();
-        this->kernelMetricSlot.ResetDirty();
-        this->kernelRadiusSlot.ResetDirty();
-        this->kernelBoundarySlot.ResetDirty();
+        splatting_method_slot_.ResetDirty();
+        voxel_size_slot_.ResetDirty();
+        kernel_type_slot_.ResetDirty();
+        kernel_metric_slot_.ResetDirty();
+        kernel_radius_slot_.ResetDirty();
+        kernel_boundary_slot_.ResetDirty();
     }
 
     /** The slot specifying the splatting method */
-    core::param::ParamSlot splattingMethodSlot;
+    core::param::ParamSlot splatting_method_slot_;
 
     /** The slot specifying the kernel type */
-    core::param::ParamSlot kernelTypeSlot;
+    core::param::ParamSlot kernel_type_slot_;
 
     /** The slot specifying the kernel metric */
-    core::param::ParamSlot kernelMetricSlot;
+    core::param::ParamSlot kernel_metric_slot_;
 
     /** The slot specifying the kernel radius */
-    core::param::ParamSlot kernelRadiusSlot;
+    core::param::ParamSlot kernel_radius_slot_;
 
     /** The slot specifying the kernal boundary handling */
-    core::param::ParamSlot kernelBoundarySlot;
+    core::param::ParamSlot kernel_boundary_slot_;
 
     /** The slot for a single volume voxel sidelength */
-    core::param::ParamSlot voxelSizeSlot;
+    core::param::ParamSlot voxel_size_slot_;
 
     /** The slot for requesting data */
-    core::CalleeSlot outDataSlot;
+    core::CalleeSlot out_data_slot_;
 
     /** The slot accessing the original particle data */
-    core::CallerSlot inParticleDataSlot;
+    core::CallerSlot in_particle_data_slot_;
 
     /** The data update hash */
-    std::size_t dataHash = 0;
+    std::size_t data_hash_ = 0;
 
     /** The last hash of the particle data */
-    std::size_t inDataHash;
+    std::size_t in_data_hash_;
 
     /** The volume data */
-    std::vector<float> volume;
+    std::vector<float> volume_;
 
     /** The minimum value of the volume */
-    float minValue = 0.0f;
+    float min_value_ = 0.0f;
 
     /** The maximum value of the volume */
-    float maxValue = 0.0f;
+    float max_value_ = 0.0f;
 
     /** The number of voxels in the x direction */
-    size_t xCells;
+    size_t x_cells_;
 
     /** The number of voxels in the y direction */
-    size_t yCells;
+    size_t y_cells_;
 
     /** The number of voxels in the z direction */
-    size_t zCells;
+    size_t z_cells_;
 
     /** The volume metadata */
-    megamol::geocalls::VolumetricDataCall::Metadata metadata;
+    megamol::geocalls::VolumetricDataCall::Metadata metadata_;
 
     /** Last time the data was updated */
-    unsigned int time = 0;
+    unsigned int time_ = 0;
 };
 
 } // namespace megamol::trialvolume
