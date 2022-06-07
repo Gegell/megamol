@@ -4,9 +4,9 @@
  * All rights reserved.
  */
 
+#include "DualContouring.h"
 #include "ParticleToVolume.h"
 #include "VtrFileReader.h"
-#include "DualContouring.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"

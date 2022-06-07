@@ -23,7 +23,6 @@ namespace megamol::trialvolume {
  */
 class ParticleToVolume : public core::Module {
 public:
-
     enum SplattingMethod : int {
         SPLAT_METHOD_KERNEL = 0,
         SPLAT_METHOD_NATURAL_NEIGHBOR = 1

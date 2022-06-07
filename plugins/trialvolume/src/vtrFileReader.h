@@ -9,11 +9,11 @@
 
 #include <vector>
 
+#include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
-#include "mmcore/param/ParamSlot.h"
 #include "mmcore/Module.h"
-#include "geometry_calls/VolumetricDataCall.h"
+#include "mmcore/param/ParamSlot.h"
 
 namespace megamol::trialvolume {
 
@@ -99,7 +99,6 @@ protected:
     bool loadFile();
 
 private:
-    
     bool dummyCallback(core::Call& caller);
 
     /** The data update hash */
@@ -128,9 +127,9 @@ private:
 
     /** Used as flag if file has changed */
     bool file_changed_;
-    
+
     /** The bounding box */
     vislib::math::Cuboid<float> bbox_;
 };
 
-} /* end namespace megamol */
+} // namespace megamol::trialvolume
