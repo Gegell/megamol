@@ -5,8 +5,7 @@
  * Alle Rechte vorbehalten.
  */
 
-#ifndef MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
-#define MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
+#pragma once
 
 #include <vector>
 
@@ -135,5 +134,3 @@ private:
 };
 
 } /* end namespace megamol */
-
-#endif /* MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED */

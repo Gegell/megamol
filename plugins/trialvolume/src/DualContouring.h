@@ -1,5 +1,4 @@
-#ifndef MEGAMOL_TRIALVOLUME_DUALCONTOURING_H
-#define MEGAMOL_TRIALVOLUME_DUALCONTOURING_H
+#pragma once
 
 #include <vector>
 
@@ -155,5 +154,3 @@ private:
 };
 
 } // namespace megamol::trialvolume
-
-#endif // MEGAMOL_TRIALVOLUME_DUALCONTOURING_H

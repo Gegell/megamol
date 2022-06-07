@@ -4,8 +4,7 @@
  * All rights reserved.
  */
 
-#ifndef MEGAMOL_TRIALVOLUME_PARTICLETOVOLUME_H
-#define MEGAMOL_TRIALVOLUME_PARTICLETOVOLUME_H
+#pragma once
 
 #include <vector>
 
@@ -219,5 +218,3 @@ private:
 };
 
 } // namespace megamol::trialvolume
-
-#endif // MEGAMOL_TRIALVOLUME_PARTICLETOVOLUME_H
