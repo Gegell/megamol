@@ -99,8 +99,8 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
 
     auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
 
-    Eigen::MatrixX3f edge_surface_points(12, 3);
-    Eigen::MatrixX3f normals(12, 3);
+    Eigen::MatrixX3f edge_surface_points(15, 3);
+    Eigen::MatrixX3f normals(15, 3);
 
     auto total_edges = 0;
     // Iterate over all edges of the voxel
@@ -174,6 +174,22 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
     if (total_edges == 0) {
         return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
     }
+
+    // For the ambiguous case, add the average of all the edge points
+    // so that we have some point which penalizes solutions far from the cell.
+    Eigen::Vector3f avg_edge_point(0, 0, 0);
+    for (auto i = 0; i < total_edges; ++i) {
+        avg_edge_point += edge_surface_points.row(i);
+    }
+    avg_edge_point /= total_edges;
+    edge_surface_points.row(total_edges) = avg_edge_point;
+    normals.row(total_edges++) = Eigen::Vector3f(0, 0, 1);
+    edge_surface_points.row(total_edges) = avg_edge_point;
+    normals.row(total_edges++) = Eigen::Vector3f(0, 1, 0);
+    edge_surface_points.row(total_edges) = avg_edge_point;
+    normals.row(total_edges++) = Eigen::Vector3f(1, 0, 0);
+
+
     edge_surface_points.conservativeResize(total_edges, Eigen::NoChange);
     normals.conservativeResize(total_edges, Eigen::NoChange);
 
