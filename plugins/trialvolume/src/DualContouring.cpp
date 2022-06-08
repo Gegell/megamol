@@ -55,9 +55,9 @@ bool trialvolume::DualContouring::getTriangleSurfaceCallback(core::Call& caller)
 
     // Check if the data has changed
     if (volumeDataCall->DataHash() != in_data_hash_ || anythingDirty()) {
-        in_data_hash_ = volumeDataCall->DataHash();
         resetDirtyFlags();
         computeSurface(*volumeDataCall);
+        in_data_hash_ = volumeDataCall->DataHash();
         data_hash_++;
 
         core::utility::log::Log::DefaultLog.WriteInfo("[DualContouring] Triangles: %d", index_buffer_->size() / 3);
@@ -345,6 +345,7 @@ bool trialvolume::DualContouring::getExtentCallback(core::Call& caller) {
     if (triangleMeshCall != nullptr) {
         triangleMeshCall->set_bounding_box(bbox_);
         triangleMeshCall->set_dimension(mesh::TriangleMeshCall::dimension_t::THREE);
+        triangleMeshCall->SetDataHash(data_hash_);
     }
     return true;
 }
