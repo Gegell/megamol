@@ -59,6 +59,12 @@ public:
     ~DualContouring() override;
 
 private:
+    struct QEF {
+        Eigen::MatrixX3f edge_surface_points;
+        Eigen::MatrixX3f normals;
+        Eigen::VectorXf b;
+    };
+    
     /**
      * Implementation of 'Create'.
      *
@@ -140,7 +146,7 @@ private:
     /**
      * Find the best position in the cell to place the vertex at.
      */
-    Eigen::Vector3f findBestVertex(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall &volumeDataCall);
+    Eigen::Vector3f findBestVertex(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall &volumeDataCall, QEF& qef);
 
     /** The slot specifying the iso surface level */
     core::param::ParamSlot iso_level_slot_;

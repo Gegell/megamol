@@ -93,81 +93,57 @@ Eigen::Vector3f trialvolume::DualContouring::forwardDiffNormalAtVolumePoint(
 }
 
 Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
-    const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall& volumeDataCall) {
-    // HACK just return the center of the cell for now. :(
-    // return Eigen::Vector3f(x + 0.5f, y + 0.5f, z + 0.5f);
+    const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall& volumeDataCall, QEF& qef) {
 
     auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
 
-    Eigen::MatrixX3f edge_surface_points(15, 3);
-    Eigen::MatrixX3f normals(15, 3);
+    // Eigen::MatrixX3f edge_surface_points(15, 3);
+    // Eigen::MatrixX3f normals(15, 3);
+    qef.edge_surface_points.resize(15, 3);
+    qef.normals.resize(15, 3);
+
+    const float corner_values[] = {volumeDataCall.GetRelativeVoxelValue(x, y, z),
+        volumeDataCall.GetRelativeVoxelValue(x + 1, y, z), volumeDataCall.GetRelativeVoxelValue(x, y + 1, z),
+        volumeDataCall.GetRelativeVoxelValue(x + 1, y + 1, z), volumeDataCall.GetRelativeVoxelValue(x, y, z + 1),
+        volumeDataCall.GetRelativeVoxelValue(x + 1, y, z + 1), volumeDataCall.GetRelativeVoxelValue(x, y + 1, z + 1),
+        volumeDataCall.GetRelativeVoxelValue(x + 1, y + 1, z + 1)};
+
+    /*
+     * The edge bits correspond to the corners of the cell as follows:
+     *    6 ----- 7
+     *   /|      /|
+     *  4 ----- 5 |
+     *  | 2 ----| 3
+     *  |/      |/
+     *  0 ----- 1
+     */
+    static uint8_t edges[][2] = {
+        {0, 1}, {0, 2}, {0, 4}, {1, 3}, {1, 5}, {2, 3}, {2, 6}, {3, 7}, {4, 5}, {4, 6}, {5, 7}, {6, 7}};
 
     auto total_edges = 0;
-    // Iterate over all edges of the voxel
-    for (auto dy = 0; dy <= 1; ++dy) {
-        for (auto dx = 0; dx <= 1; ++dx) {
-            auto level1 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + dy, z) - isoLevel;
-            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + dy, z + 1) - isoLevel;
-            if (!sameSign(level1, level2)) {
-                // Calculate the intersection point
-                auto isoCrossing = zeroCrossingLocation(level1, level2);
+    for (auto edge : edges) {
+        auto const level1 = corner_values[edge[0]] - isoLevel;
+        auto const level2 = corner_values[edge[1]] - isoLevel;
 
-                // Approximate the normal on said point
-                Eigen::Vector3f normal1 = forwardDiffNormalAtVolumePoint(x + dx, y + dy, z, volumeDataCall);
-                Eigen::Vector3f normal2 = forwardDiffNormalAtVolumePoint(x + dx, y + dy, z + 1, volumeDataCall);
+        if (!sameSign(level1, level2)) {
+            // Calculate the intersection point
+            auto isoCrossing = zeroCrossingLocation(level1, level2);
+            auto corner_1 =
+                Eigen::Vector3i(edge[0] & 1, (edge[0] >> 1) & 1, (edge[0] >> 2) & 1) + Eigen::Vector3i(x, y, z);
+            auto corner_2 =
+                Eigen::Vector3i(edge[1] & 1, (edge[1] >> 1) & 1, (edge[1] >> 2) & 1) + Eigen::Vector3i(x, y, z);
 
-                Eigen::Vector3f pos = Eigen::Vector3f(x + dx, y + dy, z) + isoCrossing * Eigen::Vector3f(0, 0, 1);
-                // Eigen::Vector3f normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
-                // normal.normalize();
+            auto pos = (1.0f - isoCrossing) * corner_1.cast<float>() + isoCrossing * corner_2.cast<float>();
 
-                edge_surface_points.row(total_edges) = pos;
-                normals.row(total_edges) = normal1;
-                total_edges++;
-            }
-        }
-    }
-    for (auto dz = 0; dz <= 1; ++dz) {
-        for (auto dx = 0; dx <= 1; ++dx) {
-            auto level1 = volumeDataCall.GetRelativeVoxelValue(x + dx, y, z + dz) - isoLevel;
-            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + dx, y + 1, z + dz) - isoLevel;
-            if (!sameSign(level1, level2)) {
-                // Calculate the intersection point
-                auto isoCrossing = zeroCrossingLocation(level1, level2);
+            // Approximate the normal on said point
+            auto normal_1 = forwardDiffNormalAtVolumePoint(corner_1(0), corner_1(1), corner_1(2), volumeDataCall);
+            // auto normal_2 = forwardDiffNormalAtVolumePoint(corner_2(0), corner_2(1), corner_2(2), volumeDataCall);
+            // auto normal = (1.0f - isoCrossing) * normal_1 + isoCrossing * normal_2;
+            // normal.normalize();
 
-                // Approximate the normal on said point
-                auto normal1 = forwardDiffNormalAtVolumePoint(x + dx, y, z + dz, volumeDataCall);
-                auto normal2 = forwardDiffNormalAtVolumePoint(x + dx, y + 1, z + dz, volumeDataCall);
-
-                auto pos = Eigen::Vector3f(x + dx, y, z + dz) + isoCrossing * Eigen::Vector3f(0, 1, 0);
-                // auto normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
-                // normal.normalize();
-
-                edge_surface_points.row(total_edges) = pos;
-                normals.row(total_edges) = normal1;
-                total_edges++;
-            }
-        }
-    }
-    for (auto dz = 0; dz <= 1; ++dz) {
-        for (auto dy = 0; dy <= 1; ++dy) {
-            auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y + dy, z + dz) - isoLevel;
-            auto level2 = volumeDataCall.GetRelativeVoxelValue(x + 1, y + dy, z + dz) - isoLevel;
-            if (!sameSign(level1, level2)) {
-                // Calculate the intersection point
-                auto isoCrossing = zeroCrossingLocation(level1, level2);
-
-                // Approximate the normal on said point
-                auto normal1 = forwardDiffNormalAtVolumePoint(x, y + dy, z + dz, volumeDataCall);
-                auto normal2 = forwardDiffNormalAtVolumePoint(x + 1, y + dy, z + dz, volumeDataCall);
-
-                auto pos = Eigen::Vector3f(x, y + dy, z + dz) + isoCrossing * Eigen::Vector3f(1, 0, 0);
-                // auto normal = isoCrossing * normal1 + (1.0f - isoCrossing) * normal2;
-                // normal.normalize();
-
-                edge_surface_points.row(total_edges) = pos;
-                normals.row(total_edges) = normal1;
-                total_edges++;
-            }
+            qef.edge_surface_points.row(total_edges) = pos;
+            qef.normals.row(total_edges) = normal_1;
+            total_edges++;
         }
     }
 
@@ -179,33 +155,34 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
     // so that we have some point which penalizes solutions far from the cell.
     Eigen::Vector3f avg_edge_point(0, 0, 0);
     for (auto i = 0; i < total_edges; ++i) {
-        avg_edge_point += edge_surface_points.row(i);
+        avg_edge_point += qef.edge_surface_points.row(i);
     }
     avg_edge_point /= total_edges;
-    edge_surface_points.row(total_edges) = avg_edge_point;
-    normals.row(total_edges++) = Eigen::Vector3f(0, 0, 1);
-    edge_surface_points.row(total_edges) = avg_edge_point;
-    normals.row(total_edges++) = Eigen::Vector3f(0, 1, 0);
-    edge_surface_points.row(total_edges) = avg_edge_point;
-    normals.row(total_edges++) = Eigen::Vector3f(1, 0, 0);
+    qef.edge_surface_points.row(total_edges) = avg_edge_point;
+    qef.normals.row(total_edges++) = Eigen::Vector3f(0, 0, 1);
+    qef.edge_surface_points.row(total_edges) = avg_edge_point;
+    qef.normals.row(total_edges++) = Eigen::Vector3f(0, 1, 0);
+    qef.edge_surface_points.row(total_edges) = avg_edge_point;
+    qef.normals.row(total_edges++) = Eigen::Vector3f(1, 0, 0);
 
-
-    edge_surface_points.conservativeResize(total_edges, Eigen::NoChange);
-    normals.conservativeResize(total_edges, Eigen::NoChange);
+    qef.edge_surface_points.conservativeResize(total_edges, Eigen::NoChange);
+    qef.normals.conservativeResize(total_edges, Eigen::NoChange);
 
     // Solve the least squares problem
-    Eigen::VectorXf b(edge_surface_points.rows());
-    for (auto i = 0; i < edge_surface_points.rows(); ++i) {
-        b(i) = edge_surface_points.row(i).dot(normals.row(i));
+    // Eigen::VectorXf b(qef.edge_surface_points.rows());
+    qef.b.resize(qef.edge_surface_points.rows());
+    for (auto i = 0; i < qef.edge_surface_points.rows(); ++i) {
+        qef.b(i) = qef.edge_surface_points.row(i).dot(qef.normals.row(i));
     }
 
-    // auto pos = normals.fullPivHouseholderQr().solve(b);
     // BUG currently outputting a nan/inf position from the solver.
     // I don't quite get why this is happening. Seperate CAS showed it should be resolvable / not explode.
 
-    auto pos = (normals.transpose() * normals).ldlt().solve(normals.transpose() * b);
+    // auto pos = qef.normals.fullPivHouseholderQr().solve(qef.b);
+    auto pos = (qef.normals.transpose() * qef.normals).ldlt().solve(qef.normals.transpose() * qef.b);
 
-    auto constrained = pos.cwiseMax(Eigen::Vector3i(x, y, z).cast<float>()).cwiseMin(Eigen::Vector3i(x + 1, y + 1, z + 1).cast<float>());
+    auto constrained = pos.cwiseMax(Eigen::Vector3i(x, y, z).cast<float>())
+                           .cwiseMin(Eigen::Vector3i(x + 1, y + 1, z + 1).cast<float>());
 
     // std::cout << "pos: " << pos.transpose() << "\tb: " << b.transpose() << std::endl;
     // std::cout << "normals: " << normals.transpose() << std::endl;
@@ -231,13 +208,23 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
     vertex_buffer_->clear();
     normal_buffer_->clear();
 
+    // Allocate space for the QEF matrix data
+    QEF qef = {Eigen::MatrixX3f(15, 3), Eigen::MatrixX3f(15, 3), Eigen::VectorXf(15)};
+
+    // Time the vertex creation
+    auto start = std::chrono::steady_clock::now();
+
     // Compute the vertices
+    auto const expected_size =
+        (metadata->Resolution[0] - 1) * (metadata->Resolution[1] - 1) * (metadata->Resolution[2] - 1) * 3;
+    vertex_buffer_->reserve(expected_size);
+    normal_buffer_->reserve(expected_size);
     for (auto z = 0u; z < metadata->Resolution[2] - 1; ++z) {
         for (auto y = 0u; y < metadata->Resolution[1] - 1; ++y) {
             for (auto x = 0u; x < metadata->Resolution[0] - 1; ++x) {
                 // FIXME Assume the coordinates are uniformly spaced
 
-                auto pos = findBestVertex(x, y, z, volumeDataCall);
+                auto pos = findBestVertex(x, y, z, volumeDataCall, qef);
                 vertex_buffer_->push_back(
                     pos(0) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
                 vertex_buffer_->push_back(
@@ -253,6 +240,9 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
             }
         }
     }
+
+    core::utility::log::Log::DefaultLog.WriteInfo("[DualContouring] Vertex creation took %lld ms",
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
 
     // Set the bounding box
     // bbox = volumeDataCall->AccessBoundingBoxes().ObjectSpaceBBox();
