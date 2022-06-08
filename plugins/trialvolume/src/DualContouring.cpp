@@ -137,12 +137,12 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
 
             // Approximate the normal on said point
             auto normal_1 = forwardDiffNormalAtVolumePoint(corner_1(0), corner_1(1), corner_1(2), volumeDataCall);
-            // auto normal_2 = forwardDiffNormalAtVolumePoint(corner_2(0), corner_2(1), corner_2(2), volumeDataCall);
-            // auto normal = (1.0f - isoCrossing) * normal_1 + isoCrossing * normal_2;
-            // normal.normalize();
+            auto normal_2 = forwardDiffNormalAtVolumePoint(corner_2(0), corner_2(1), corner_2(2), volumeDataCall);
+            auto normal = ((1.0f - isoCrossing) * normal_1 + isoCrossing * normal_2).eval();
+            normal.normalize();
 
             qef.edge_surface_points.row(total_edges) = pos;
-            qef.normals.row(total_edges) = normal_1;
+            qef.normals.row(total_edges) = normal;
             total_edges++;
         }
     }
