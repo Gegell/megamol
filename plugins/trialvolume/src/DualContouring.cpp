@@ -1,5 +1,6 @@
 #include "DualContouring.h"
 
+#include "omp.h"
 #include <vector>
 
 #include <Eigen/Dense>
@@ -208,41 +209,49 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
     vertex_buffer_->clear();
     normal_buffer_->clear();
 
-    // Allocate space for the QEF matrix data
-    QEF qef = {Eigen::MatrixX3f(15, 3), Eigen::MatrixX3f(15, 3), Eigen::VectorXf(15)};
-
     // Time the vertex creation
     auto start = std::chrono::steady_clock::now();
 
-    // Compute the vertices
+    // Preallocate space for the vertex & normal buffers
     auto const expected_size =
         (metadata->Resolution[0] - 1) * (metadata->Resolution[1] - 1) * (metadata->Resolution[2] - 1) * 3;
-    vertex_buffer_->reserve(expected_size);
-    normal_buffer_->reserve(expected_size);
-    for (auto z = 0u; z < metadata->Resolution[2] - 1; ++z) {
-        for (auto y = 0u; y < metadata->Resolution[1] - 1; ++y) {
-            for (auto x = 0u; x < metadata->Resolution[0] - 1; ++x) {
-                // FIXME Assume the coordinates are uniformly spaced
+    vertex_buffer_->resize(expected_size);
+    normal_buffer_->resize(expected_size);
 
-                auto pos = findBestVertex(x, y, z, volumeDataCall, qef);
-                vertex_buffer_->push_back(
-                    pos(0) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0]);
-                vertex_buffer_->push_back(
-                    pos(1) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1]);
-                vertex_buffer_->push_back(
-                    pos(2) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2]);
+#pragma omp parallel
+    {
+        // Allocate space for the QEF matrix data
+        QEF qef = {Eigen::MatrixX3f(15, 3), Eigen::MatrixX3f(15, 3), Eigen::VectorXf(15)};
 
-                // FIXME TEMPORARY: Compute the normals via forward differencing
-                auto normal = forwardDiffNormalAtVolumePoint(x, y, z, volumeDataCall);
-                normal_buffer_->push_back(normal(0));
-                normal_buffer_->push_back(normal(1));
-                normal_buffer_->push_back(normal(2));
+#pragma omp for
+        for (auto z = 0; z < metadata->Resolution[2] - 1; ++z) {
+            for (auto y = 0; y < metadata->Resolution[1] - 1; ++y) {
+                for (auto x = 0; x < metadata->Resolution[0] - 1; ++x) {
+                    // FIXME Assume the coordinates are uniformly spaced
+
+                    auto pos = findBestVertex(x, y, z, volumeDataCall, qef);
+                    auto normal = forwardDiffNormalAtVolumePoint(x, y, z, volumeDataCall);
+                    auto index = toFlatIndex(x, y, z, metadata) * 3;
+
+                    (*vertex_buffer_)[index + 0] =
+                        pos(0) * metadata->Extents[0] / metadata->Resolution[0] + metadata->Origin[0];
+                    (*vertex_buffer_)[index + 1] =
+                        pos(1) * metadata->Extents[1] / metadata->Resolution[1] + metadata->Origin[1];
+                    (*vertex_buffer_)[index + 2] =
+                        pos(2) * metadata->Extents[2] / metadata->Resolution[2] + metadata->Origin[2];
+
+                    (*normal_buffer_)[index + 0] = normal(0);
+                    (*normal_buffer_)[index + 1] = normal(1);
+                    (*normal_buffer_)[index + 2] = normal(2);
+                }
             }
         }
     }
 
     core::utility::log::Log::DefaultLog.WriteInfo("[DualContouring] Vertex creation took %lld ms",
         std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
+
+    start = std::chrono::steady_clock::now();
 
     // Set the bounding box
     // bbox = volumeDataCall->AccessBoundingBoxes().ObjectSpaceBBox();
@@ -252,71 +261,83 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
 
     // Compute the triangles
     auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
-    auto quad_buffer = std::vector<unsigned int>();
-    for (auto z = 0u; z < metadata->Resolution[2] - 1; ++z) {
-        for (auto y = 0u; y < metadata->Resolution[1] - 1; ++y) {
-            for (auto x = 0u; x < metadata->Resolution[0] - 1; ++x) {
-                if (x > 0 && y > 0) {
-                    auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                    auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y, z + 1) - isoLevel;
-                    if (!sameSign(level1, level2)) {
-                        // Push a quad as 2 triangles
-                        quad_buffer.clear();
-                        quad_buffer.push_back(toFlatIndex(x - 1, y - 0, z, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 1, y - 1, z, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y - 0, z, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y - 0, z, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 1, y - 1, z, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y - 1, z, metadata));
-                        // Reverse if other is inside
-                        if (level1 < 0.0f) {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.rbegin(), quad_buffer.rend());
-                        } else {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.begin(), quad_buffer.end());
+
+#pragma omp parallel
+    {
+        auto quad_buffer = std::vector<unsigned int>();
+        auto index_buffer_local = std::vector<unsigned int>();
+        
+        #pragma omp for
+        for (auto z = 0; z < metadata->Resolution[2] - 1; ++z) {
+            for (auto y = 0; y < metadata->Resolution[1] - 1; ++y) {
+                for (auto x = 0; x < metadata->Resolution[0] - 1; ++x) {
+                    if (x > 0 && y > 0) {
+                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
+                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y, z + 1) - isoLevel;
+                        if (!sameSign(level1, level2)) {
+                            // Push a quad as 2 triangles
+                            quad_buffer.clear();
+                            quad_buffer.push_back(toFlatIndex(x - 1, y - 0, z, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 1, y - 1, z, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y - 0, z, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y - 0, z, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 1, y - 1, z, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y - 1, z, metadata));
+                            // Reverse if other is inside
+                            if (level1 < 0.0f) {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                            } else {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                            }
                         }
                     }
-                }
-                if (x > 0 && z > 0) {
-                    auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                    auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y + 1, z) - isoLevel;
-                    if (!sameSign(level1, level2)) {
-                        // Push a quad as 2 triangles
-                        quad_buffer.clear();
-                        quad_buffer.push_back(toFlatIndex(x - 1, y, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 1, y, z - 1, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 0, y, z - 1, metadata));
-                        quad_buffer.push_back(toFlatIndex(x - 1, y, z - 1, metadata));
-                        // Reverse if other is inside
-                        if (level1 < 0.0f) {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.rbegin(), quad_buffer.rend());
-                        } else {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.begin(), quad_buffer.end());
+                    if (x > 0 && z > 0) {
+                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
+                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y + 1, z) - isoLevel;
+                        if (!sameSign(level1, level2)) {
+                            // Push a quad as 2 triangles
+                            quad_buffer.clear();
+                            quad_buffer.push_back(toFlatIndex(x - 1, y, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 1, y, z - 1, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 0, y, z - 1, metadata));
+                            quad_buffer.push_back(toFlatIndex(x - 1, y, z - 1, metadata));
+                            // Reverse if other is inside
+                            if (level1 < 0.0f) {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                            } else {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                            }
                         }
                     }
-                }
-                if (y > 0 && z > 0) {
-                    auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                    auto level2 = volumeDataCall.GetRelativeVoxelValue(x + 1, y, z) - isoLevel;
-                    if (!sameSign(level1, level2)) {
-                        // Push a quad as 2 triangles
-                        quad_buffer.clear();
-                        quad_buffer.push_back(toFlatIndex(x, y - 1, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x, y - 1, z - 1, metadata));
-                        quad_buffer.push_back(toFlatIndex(x, y - 0, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x, y - 0, z - 0, metadata));
-                        quad_buffer.push_back(toFlatIndex(x, y - 1, z - 1, metadata));
-                        quad_buffer.push_back(toFlatIndex(x, y - 0, z - 1, metadata));
-                        // Reverse if other is inside
-                        if (level1 < 0.0f) {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.rbegin(), quad_buffer.rend());
-                        } else {
-                            index_buffer_->insert(index_buffer_->end(), quad_buffer.begin(), quad_buffer.end());
+                    if (y > 0 && z > 0) {
+                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
+                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x + 1, y, z) - isoLevel;
+                        if (!sameSign(level1, level2)) {
+                            // Push a quad as 2 triangles
+                            quad_buffer.clear();
+                            quad_buffer.push_back(toFlatIndex(x, y - 1, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x, y - 1, z - 1, metadata));
+                            quad_buffer.push_back(toFlatIndex(x, y - 0, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x, y - 0, z - 0, metadata));
+                            quad_buffer.push_back(toFlatIndex(x, y - 1, z - 1, metadata));
+                            quad_buffer.push_back(toFlatIndex(x, y - 0, z - 1, metadata));
+                            // Reverse if other is inside
+                            if (level1 < 0.0f) {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                            } else {
+                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                            }
                         }
                     }
                 }
             }
+        }
+
+        #pragma omp critical
+        {
+            index_buffer_->insert(index_buffer_->end(), index_buffer_local.begin(), index_buffer_local.end());
         }
     }
     // TODO Compute normals
@@ -328,6 +349,9 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
         index_buffer_->push_back(1);
         index_buffer_->push_back(2);
     }
+
+    core::utility::log::Log::DefaultLog.WriteInfo("[DualContouring] Index buffer creation took %lld ms",
+        std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count());
 }
 
 bool trialvolume::DualContouring::getExtentCallback(core::Call& caller) {
