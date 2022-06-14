@@ -266,8 +266,8 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
     {
         auto quad_buffer = std::vector<unsigned int>();
         auto index_buffer_local = std::vector<unsigned int>();
-        
-        #pragma omp for
+
+#pragma omp for
         for (auto z = 0; z < metadata->Resolution[2] - 1; ++z) {
             for (auto y = 0; y < metadata->Resolution[1] - 1; ++y) {
                 for (auto x = 0; x < metadata->Resolution[0] - 1; ++x) {
@@ -285,9 +285,11 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                             quad_buffer.push_back(toFlatIndex(x - 0, y - 1, z, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
                             } else {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
                             }
                         }
                     }
@@ -305,9 +307,11 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                             quad_buffer.push_back(toFlatIndex(x - 1, y, z - 1, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
                             } else {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
                             }
                         }
                     }
@@ -325,9 +329,11 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                             quad_buffer.push_back(toFlatIndex(x, y - 0, z - 1, metadata));
                             // Reverse if other is inside
                             if (level1 < 0.0f) {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.rbegin(), quad_buffer.rend());
                             } else {
-                                index_buffer_local.insert(index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
+                                index_buffer_local.insert(
+                                    index_buffer_local.end(), quad_buffer.begin(), quad_buffer.end());
                             }
                         }
                     }
@@ -335,10 +341,8 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
             }
         }
 
-        #pragma omp critical
-        {
-            index_buffer_->insert(index_buffer_->end(), index_buffer_local.begin(), index_buffer_local.end());
-        }
+#pragma omp critical
+        { index_buffer_->insert(index_buffer_->end(), index_buffer_local.begin(), index_buffer_local.end()); }
     }
     // TODO Compute normals
 
