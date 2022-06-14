@@ -151,6 +151,9 @@ private:
     /** The slot specifying the iso surface level */
     core::param::ParamSlot iso_level_slot_;
 
+    /** The absolute iso surface level */
+    float absolute_iso_level_;
+
     /** The slot for requesting data */
     core::CalleeSlot out_triangle_surface_slot_;
 

@@ -95,19 +95,16 @@ Eigen::Vector3f trialvolume::DualContouring::forwardDiffNormalAtVolumePoint(
 
 Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
     const size_t x, const size_t y, const size_t z, const geocalls::VolumetricDataCall& volumeDataCall, QEF& qef) {
-
-    auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
-
     // Eigen::MatrixX3f edge_surface_points(15, 3);
     // Eigen::MatrixX3f normals(15, 3);
     qef.edge_surface_points.resize(15, 3);
     qef.normals.resize(15, 3);
 
-    const float corner_values[] = {volumeDataCall.GetRelativeVoxelValue(x, y, z),
-        volumeDataCall.GetRelativeVoxelValue(x + 1, y, z), volumeDataCall.GetRelativeVoxelValue(x, y + 1, z),
-        volumeDataCall.GetRelativeVoxelValue(x + 1, y + 1, z), volumeDataCall.GetRelativeVoxelValue(x, y, z + 1),
-        volumeDataCall.GetRelativeVoxelValue(x + 1, y, z + 1), volumeDataCall.GetRelativeVoxelValue(x, y + 1, z + 1),
-        volumeDataCall.GetRelativeVoxelValue(x + 1, y + 1, z + 1)};
+    const float corner_values[] = {volumeDataCall.GetAbsoluteVoxelValue(x, y, z),
+        volumeDataCall.GetAbsoluteVoxelValue(x + 1, y, z), volumeDataCall.GetAbsoluteVoxelValue(x, y + 1, z),
+        volumeDataCall.GetAbsoluteVoxelValue(x + 1, y + 1, z), volumeDataCall.GetAbsoluteVoxelValue(x, y, z + 1),
+        volumeDataCall.GetAbsoluteVoxelValue(x + 1, y, z + 1), volumeDataCall.GetAbsoluteVoxelValue(x, y + 1, z + 1),
+        volumeDataCall.GetAbsoluteVoxelValue(x + 1, y + 1, z + 1)};
 
     /*
      * The edge bits correspond to the corners of the cell as follows:
@@ -123,8 +120,8 @@ Eigen::Vector3f trialvolume::DualContouring::findBestVertex(
 
     auto total_edges = 0;
     for (auto edge : edges) {
-        auto const level1 = corner_values[edge[0]] - isoLevel;
-        auto const level2 = corner_values[edge[1]] - isoLevel;
+        auto const level1 = corner_values[edge[0]] - absolute_iso_level_;
+        auto const level2 = corner_values[edge[1]] - absolute_iso_level_;
 
         if (!sameSign(level1, level2)) {
             // Calculate the intersection point
@@ -204,6 +201,10 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
         return false;
     }
 
+    // Compute the absolute iso level
+    auto const relative_iso_level = iso_level_slot_.Param<core::param::FloatParam>()->Value();
+    absolute_iso_level_ = (1.0f - relative_iso_level) * metadata->MinValues[0] + relative_iso_level * metadata->MaxValues[0];
+
     // Clear previous data
     index_buffer_->clear();
     vertex_buffer_->clear();
@@ -260,8 +261,6 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
         metadata->Origin[2] + metadata->Extents[2]);
 
     // Compute the triangles
-    auto isoLevel = iso_level_slot_.Param<core::param::FloatParam>()->Value();
-
 #pragma omp parallel
     {
         auto quad_buffer = std::vector<unsigned int>();
@@ -272,8 +271,8 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
             for (auto y = 0; y < metadata->Resolution[1] - 1; ++y) {
                 for (auto x = 0; x < metadata->Resolution[0] - 1; ++x) {
                     if (x > 0 && y > 0) {
-                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y, z + 1) - isoLevel;
+                        auto level1 = volumeDataCall.GetAbsoluteVoxelValue(x, y, z) - absolute_iso_level_;
+                        auto level2 = volumeDataCall.GetAbsoluteVoxelValue(x, y, z + 1) - absolute_iso_level_;
                         if (!sameSign(level1, level2)) {
                             // Push a quad as 2 triangles
                             quad_buffer.clear();
@@ -294,8 +293,8 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                         }
                     }
                     if (x > 0 && z > 0) {
-                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x, y + 1, z) - isoLevel;
+                        auto level1 = volumeDataCall.GetAbsoluteVoxelValue(x, y, z) - absolute_iso_level_;
+                        auto level2 = volumeDataCall.GetAbsoluteVoxelValue(x, y + 1, z) - absolute_iso_level_;
                         if (!sameSign(level1, level2)) {
                             // Push a quad as 2 triangles
                             quad_buffer.clear();
@@ -316,8 +315,8 @@ bool trialvolume::DualContouring::computeSurface(geocalls::VolumetricDataCall& v
                         }
                     }
                     if (y > 0 && z > 0) {
-                        auto level1 = volumeDataCall.GetRelativeVoxelValue(x, y, z) - isoLevel;
-                        auto level2 = volumeDataCall.GetRelativeVoxelValue(x + 1, y, z) - isoLevel;
+                        auto level1 = volumeDataCall.GetAbsoluteVoxelValue(x, y, z) - absolute_iso_level_;
+                        auto level2 = volumeDataCall.GetAbsoluteVoxelValue(x + 1, y, z) - absolute_iso_level_;
                         if (!sameSign(level1, level2)) {
                             // Push a quad as 2 triangles
                             quad_buffer.clear();
