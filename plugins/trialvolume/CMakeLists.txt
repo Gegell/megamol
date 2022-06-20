@@ -7,9 +7,11 @@ megamol_plugin(trailvolume
   BUILD_DEFAULT ON
   DEPENDS_PLUGINS
     geometry_calls
+    mesh
     # plugin2
   DEPENDS_EXTERNALS
     voro++
+    Eigen
     # external2
   )
 

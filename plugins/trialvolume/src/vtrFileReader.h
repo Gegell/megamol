@@ -1,20 +1,19 @@
 /*
- * vtrFileReader.h
+ * VtrFileReader.h
  *
  * Copyright (C) 2020-2021 by VISUS (Universitaet Stuttgart)
  * Alle Rechte vorbehalten.
  */
 
-#ifndef MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
-#define MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED
+#pragma once
 
-#include "mmcore/CalleeSlot.h"
-#include "mmcore/CallerSlot.h"
-#include "mmcore/param/ParamSlot.h"
-#include "mmcore/Module.h"
+#include <vector>
 
 #include "geometry_calls/VolumetricDataCall.h"
-#include <vector>
+#include "mmcore/CalleeSlot.h"
+#include "mmcore/CallerSlot.h"
+#include "mmcore/Module.h"
+#include "mmcore/param/ParamSlot.h"
 
 namespace megamol::trialvolume {
 
@@ -22,7 +21,7 @@ namespace megamol::trialvolume {
 /**
  * Data source module for mmvtkm files
  */
-class vtrFileReader : public core::Module {
+class VtrFileReader : public core::Module {
 public:
     /**
      * Answer the name of this module.
@@ -30,7 +29,7 @@ public:
      * @return The name of this module.
      */
     static const char* ClassName(void) {
-        return "vtrFileReader";
+        return "VtrFileReader";
     }
 
     /**
@@ -52,10 +51,10 @@ public:
     }
 
     /** Ctor. */
-    vtrFileReader(void);
+    VtrFileReader(void);
 
     /** Dtor. */
-    virtual ~vtrFileReader(void);
+    virtual ~VtrFileReader(void);
 
 protected:
     /**
@@ -100,40 +99,37 @@ protected:
     bool loadFile();
 
 private:
-    
     bool dummyCallback(core::Call& caller);
 
     /** The data update hash */
-    std::size_t dataHash = 0;
+    std::size_t data_hash_ = 0;
 
     /** The file name  */
     core::param::ParamSlot filename_;
 
     /** The slot for requesting data */
-    core::CalleeSlot getDataCalleeSlot_;
+    core::CalleeSlot get_data_callee_slot_;
 
     /** The volume data */
-    std::vector<float> volume;
+    std::vector<float> volume_;
 
     /** The minimum value of the volume */
-    float minValue = 0.0f;
+    float min_value_ = 0.0f;
 
     /** The maximum value of the volume */
-    float maxValue = 0.0f;
+    float max_value_ = 0.0f;
 
     /** The vtkm data holder metadata */
-    geocalls::VolumetricDataCall::Metadata metadata;
+    geocalls::VolumetricDataCall::Metadata metadata_;
 
     /** The vtr data file name */
-    std::string vtrFilename;
+    std::string vtr_filename_;
 
     /** Used as flag if file has changed */
-    bool fileChanged_;
-    
+    bool file_changed_;
+
     /** The bounding box */
-    vislib::math::Cuboid<float> bbox;
+    vislib::math::Cuboid<float> bbox_;
 };
 
-} /* end namespace megamol */
-
-#endif /* MEGAMOL_TRIALVOLUME_VTRFILEREADER_H_INCLUDED */
+} // namespace megamol::trialvolume

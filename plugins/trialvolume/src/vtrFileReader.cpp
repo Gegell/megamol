@@ -1,88 +1,88 @@
-#include "vtrFileReader.h"
+#include "VtrFileReader.h"
+
+#include <iostream>
+#include <fstream>
 
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/FilePathParam.h"
 #include "mmcore/param/IntParam.h"
 
-#include <iostream>
-#include <fstream>
-
 using namespace megamol;
 
-trialvolume::vtrFileReader::vtrFileReader() : core::Module()
-        , getDataCalleeSlot_("getdata", "Slot to request data from this data source.")
+trialvolume::VtrFileReader::VtrFileReader() : core::Module()
+        , get_data_callee_slot_("getdata", "Slot to request data from this data source.")
         , filename_("filename", "The path to the vtr file to load.")
-        , dataHash(0)
-        , metadata()
-        , vtrFilename("")
-        , fileChanged_(true) {
+        , data_hash_(0)
+        , metadata_()
+        , vtr_filename_("")
+        , file_changed_(true) {
     // Setup filename input slot
-    this->filename_.SetParameter(new core::param::FilePathParam(""));
-    this->filename_.SetUpdateCallback(&trialvolume::vtrFileReader::filenameChanged);
-    this->MakeSlotAvailable(&this->filename_);
+    filename_.SetParameter(new core::param::FilePathParam(""));
+    filename_.SetUpdateCallback(&trialvolume::VtrFileReader::filenameChanged);
+    MakeSlotAvailable(&filename_);
 
     // Setup volumetric data output slot
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_DATA),
-        &trialvolume::vtrFileReader::getDataCallback);
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        &trialvolume::VtrFileReader::getDataCallback);
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_EXTENTS),
-        &trialvolume::vtrFileReader::getDataCallback);
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        &trialvolume::VtrFileReader::getDataCallback);
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_METADATA),
-        &trialvolume::vtrFileReader::getDataCallback);
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        &trialvolume::VtrFileReader::getDataCallback);
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_START_ASYNC),
-        &trialvolume::vtrFileReader::dummyCallback);
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        &trialvolume::VtrFileReader::dummyCallback);
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_STOP_ASYNC),
-        &trialvolume::vtrFileReader::dummyCallback);
-    this->getDataCalleeSlot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        &trialvolume::VtrFileReader::dummyCallback);
+    get_data_callee_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_TRY_GET_DATA),
-        &trialvolume::vtrFileReader::dummyCallback);
-    this->MakeSlotAvailable(&this->getDataCalleeSlot_);
+        &trialvolume::VtrFileReader::dummyCallback);
+    MakeSlotAvailable(&get_data_callee_slot_);
 }
 
-trialvolume::vtrFileReader::~vtrFileReader() {
-    this->Release();
+trialvolume::VtrFileReader::~VtrFileReader() {
+    Release();
 }
 
-bool trialvolume::vtrFileReader::create(void) {
+bool trialvolume::VtrFileReader::create(void) {
     return true;
 }
 
-void trialvolume::vtrFileReader::release(void) {
+void trialvolume::VtrFileReader::release(void) {
 }
 
-bool trialvolume::vtrFileReader::dummyCallback(core::Call& caller) {
+bool trialvolume::VtrFileReader::dummyCallback(core::Call& caller) {
     return true;
 }
 
 // TODO This function is probably *super* unsafe. Replace with something better.
-bool trialvolume::vtrFileReader::filenameChanged(core::param::ParamSlot& slot) {
-    vtrFilename = this->filename_.Param<core::param::FilePathParam>()->ValueString();
-    this->fileChanged_ = true;
-    return this->loadFile();
+bool trialvolume::VtrFileReader::filenameChanged(core::param::ParamSlot& slot) {
+    vtr_filename_ = filename_.Param<core::param::FilePathParam>()->ValueString();
+    file_changed_ = true;
+    return loadFile();
 }
 
-bool trialvolume::vtrFileReader::loadFile() {
-    if (vtrFilename.empty()) {
-        core::utility::log::Log::DefaultLog.WriteError("Empty vtr file %s!", vtrFilename);
+bool trialvolume::VtrFileReader::loadFile() {
+    if (vtr_filename_.empty()) {
+        core::utility::log::Log::DefaultLog.WriteError("Empty vtr file %s!", vtr_filename_);
         return false;
     }
 
     // Set general metadata which is not directly given in the vtr file
-    metadata.Components = 1;
-    metadata.GridType = geocalls::GridType_t::RECTILINEAR;
-    metadata.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
-    metadata.ScalarLength = sizeof(float);
+    metadata_.Components = 1;
+    metadata_.GridType = geocalls::GridType_t::RECTILINEAR;
+    metadata_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
+    metadata_.ScalarLength = sizeof(float);
 
-    metadata.NumberOfFrames = 1;
+    metadata_.NumberOfFrames = 1;
 
     // Open file
-    std::ifstream vtrFile(vtrFilename.c_str(), std::ios::binary);
+    std::ifstream vtrFile(vtr_filename_.c_str(), std::ios::binary);
     if (!vtrFile.is_open()) {
-        core::utility::log::Log::DefaultLog.WriteError("Could not open vtr file %s!", vtrFilename.c_str());
+        core::utility::log::Log::DefaultLog.WriteError("Could not open vtr file %s!", vtr_filename_.c_str());
         return false;
     }
     // Read header info
@@ -114,29 +114,29 @@ bool trialvolume::vtrFileReader::loadFile() {
         }
         // Check if correct type is given
         if (type != "Float64") {
-            core::utility::log::Log::DefaultLog.WriteError("Wrong type given in vtr file %s!", vtrFilename.c_str());
+            core::utility::log::Log::DefaultLog.WriteError("Wrong type given in vtr file %s!", vtr_filename_.c_str());
             return false;
         }
         // Check if expected amount is given
         if (amount != 1) {
-            core::utility::log::Log::DefaultLog.WriteError("Wrong amount given in vtr file %s!", vtrFilename.c_str());
+            core::utility::log::Log::DefaultLog.WriteError("Wrong amount given in vtr file %s!", vtr_filename_.c_str());
             return false;
         }
         // Check if name is given
         if (name == "x_coordinates") {
             // TODO: Actually use the vof as volumes of the cells not as values on the grid points 
-            metadata.Resolution[0] = size / 8 - 1;
+            metadata_.Resolution[0] = size / 8 - 1;
             offsets[0] = offset;
         } else if (name == "y_coordinates") {
-            metadata.Resolution[1] = size / 8 - 1;
+            metadata_.Resolution[1] = size / 8 - 1;
             offsets[1] = offset;
         } else if (name == "z_coordinates") {
-            metadata.Resolution[2] = size / 8 - 1;
+            metadata_.Resolution[2] = size / 8 - 1;
             offsets[2] = offset;
         } else if (name == "vof-function[-]") {
             offsets[3] = offset;
         } else {
-            core::utility::log::Log::DefaultLog.WriteError("Unknown name %s given in vtr file %s!", name, vtrFilename.c_str());
+            core::utility::log::Log::DefaultLog.WriteError("Unknown name %s given in vtr file %s!", name, vtr_filename_.c_str());
             return false;
         }
     }
@@ -147,16 +147,16 @@ bool trialvolume::vtrFileReader::loadFile() {
     for (size_t axisIdx = 0; axisIdx < 3; axisIdx++) {
 
         vtrFile.seekg(base_offset + std::streamoff(offsets[axisIdx]), std::ios::beg);
-        metadata.SliceDists[axisIdx] = new float[metadata.Resolution[axisIdx] - 1];
+        metadata_.SliceDists[axisIdx] = new float[metadata_.Resolution[axisIdx] - 1];
         char buffer[sizeof(double)];
         vtrFile.read(buffer, sizeof(double));
         auto prev_val = *reinterpret_cast<double*>(buffer);
         auto min = prev_val;
         auto max = prev_val;
-        for (size_t i = 0; i < metadata.Resolution[axisIdx] - 1; i++) {
+        for (size_t i = 0; i < metadata_.Resolution[axisIdx] - 1; i++) {
             vtrFile.read(buffer, sizeof(double));
             auto const val = *reinterpret_cast<double*>(buffer);
-            metadata.SliceDists[axisIdx][i] = static_cast<float>(val - prev_val);
+            metadata_.SliceDists[axisIdx][i] = static_cast<float>(val - prev_val);
             prev_val = val;
             if (val < min) {
                 min = val;
@@ -164,62 +164,62 @@ bool trialvolume::vtrFileReader::loadFile() {
                 max = val;
             }
         }
-        metadata.IsUniform[axisIdx] = false;
-        metadata.Extents[axisIdx] = static_cast<float>(max - min);
-        metadata.Origin[axisIdx] = static_cast<float>(min);
+        metadata_.IsUniform[axisIdx] = false;
+        metadata_.Extents[axisIdx] = static_cast<float>(max - min);
+        metadata_.Origin[axisIdx] = static_cast<float>(min);
     }
 
     // Read the vof data
     vtrFile.seekg(base_offset + std::streamoff(offsets[3]), std::ios::beg);
-    volume.resize((metadata.Resolution[0]) * (metadata.Resolution[1]) * (metadata.Resolution[2]));
+    volume_.resize((metadata_.Resolution[0]) * (metadata_.Resolution[1]) * (metadata_.Resolution[2]));
     auto min = std::numeric_limits<double>::max();
     auto max = std::numeric_limits<double>::min();
     char buffer[sizeof(double)];
-    for (size_t i = 0; i < volume.size(); i++) {
+    for (size_t i = 0; i < volume_.size(); i++) {
         vtrFile.read(buffer, sizeof(double));
         auto val = *reinterpret_cast<double*>(buffer);
-        volume[i] = static_cast<float>(val);
+        volume_[i] = static_cast<float>(val);
         if (val < min) {
             min = val;
         } else if (val > max) {
             max = val;
         }
     }
-    this->dataHash++;
-    this->fileChanged_ = false;
+    data_hash_++;
+    file_changed_ = false;
 
-    metadata.MinValues = new double[1];
-    metadata.MinValues[0] = min;
-    metadata.MaxValues = new double[1];
-    metadata.MaxValues[0] = max;
+    metadata_.MinValues = new double[1];
+    metadata_.MinValues[0] = min;
+    metadata_.MaxValues = new double[1];
+    metadata_.MaxValues[0] = max;
 
     // Save the bounding box
-    bbox = vislib::math::Cuboid<float>(metadata.Origin[0], metadata.Origin[1], metadata.Origin[2],
-        metadata.Origin[0] + metadata.Extents[0], metadata.Origin[1] + metadata.Extents[1], metadata.Origin[2] + metadata.Extents[2]);
+    bbox_ = vislib::math::Cuboid<float>(metadata_.Origin[0], metadata_.Origin[1], metadata_.Origin[2],
+        metadata_.Origin[0] + metadata_.Extents[0], metadata_.Origin[1] + metadata_.Extents[1], metadata_.Origin[2] + metadata_.Extents[2]);
 
     // Report some statistics
-    core::utility::log::Log::DefaultLog.WriteInfo("Loaded vtr file %s", vtrFilename.c_str());
-    core::utility::log::Log::DefaultLog.WriteInfo("  Resolution: %d x %d x %d", metadata.Resolution[0], metadata.Resolution[1], metadata.Resolution[2]);
-    core::utility::log::Log::DefaultLog.WriteInfo("  Extents: %f x %f x %f", metadata.Extents[0], metadata.Extents[1], metadata.Extents[2]);
-    core::utility::log::Log::DefaultLog.WriteInfo("  Origin: %f x %f x %f", metadata.Origin[0], metadata.Origin[1], metadata.Origin[2]);
+    core::utility::log::Log::DefaultLog.WriteInfo("Loaded vtr file %s", vtr_filename_.c_str());
+    core::utility::log::Log::DefaultLog.WriteInfo("  Resolution: %d x %d x %d", metadata_.Resolution[0], metadata_.Resolution[1], metadata_.Resolution[2]);
+    core::utility::log::Log::DefaultLog.WriteInfo("  Extents: %f x %f x %f", metadata_.Extents[0], metadata_.Extents[1], metadata_.Extents[2]);
+    core::utility::log::Log::DefaultLog.WriteInfo("  Origin: %f x %f x %f", metadata_.Origin[0], metadata_.Origin[1], metadata_.Origin[2]);
     core::utility::log::Log::DefaultLog.WriteInfo("  Min: %f", min);
     core::utility::log::Log::DefaultLog.WriteInfo("  Max: %f", max);
 }
 
-bool trialvolume::vtrFileReader::getDataCallback(core::Call& caller) {
-    if (this->fileChanged_) {
-        this->fileChanged_ = false;
-        this->loadFile();
+bool trialvolume::VtrFileReader::getDataCallback(core::Call& caller) {
+    if (file_changed_) {
+        file_changed_ = false;
+        loadFile();
     }
-    if (this->dataHash != 0) {
+    if (data_hash_ != 0) {
         auto& dataCall = dynamic_cast<geocalls::VolumetricDataCall&>(caller);
-        dataCall.SetDataHash(this->dataHash);
+        dataCall.SetDataHash(data_hash_);
         dataCall.SetFrameID(0);
-        dataCall.SetData(this->volume.data());
-        dataCall.SetMetadata(&metadata);
+        dataCall.SetData(volume_.data());
+        dataCall.SetMetadata(&metadata_);
 
-        dataCall.AccessBoundingBoxes().SetObjectSpaceBBox(this->bbox);
-        auto clipbox = vislib::math::Cuboid<float>(this->bbox);
+        dataCall.AccessBoundingBoxes().SetObjectSpaceBBox(bbox_);
+        auto clipbox = vislib::math::Cuboid<float>(bbox_);
         clipbox.Grow(.1f);
         dataCall.AccessBoundingBoxes().SetObjectSpaceClipBox(clipbox);
         dataCall.AccessBoundingBoxes().MakeScaledWorld(1.0f);
