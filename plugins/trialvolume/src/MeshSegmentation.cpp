@@ -89,7 +89,7 @@ bool MeshSegmentation::getSegmentationCallback(core::Call& call) {
 
     // Store the parent for each vertex
     // TODO make it so that it could also use the edges as connections, not just vertices
-    auto parent = std::map<size_t, size_t>();
+    auto parents = std::map<size_t, size_t>();
     // Iterate over every triangle
     for (size_t i = 0; i < indices.size(); i += 3) {
         // Get the indices of the three vertices of the triangle
@@ -97,28 +97,28 @@ bool MeshSegmentation::getSegmentationCallback(core::Call& call) {
         size_t b = indices[i + 1];
         size_t c = indices[i + 2];
         // Find the parent of each vertex
-        parent[merge(parent, b)] = merge(parent, a);
-        parent[merge(parent, c)] = merge(parent, a);
+        parents[merge(parents, b)] = merge(parents, a);
+        parents[merge(parents, c)] = merge(parents, a);
     }
     // Extract the connected components
     segments_ = std::make_shared<std::vector<Segment>>();
     auto parent_to_segment_index = std::map<size_t, size_t>();
-    for (size_t i = 0; i < parent.size(); i++) {
-        parent[indices[i]] = merge(parent, indices[i]);
-        if (parent_to_segment_index.find(parent[indices[i]]) == parent_to_segment_index.end()) {
-            parent_to_segment_index[parent[indices[i]]] = segments_->size();
+    for (auto [index, parent] : parents) {
+        auto root = merge(parents, index);
+        if (parent_to_segment_index.find(root) == parent_to_segment_index.end()) {
+            parent_to_segment_index[root] = segments_->size();
             segments_->push_back(Segment());
         }
-        auto segment = &(*segments_)[parent_to_segment_index[parent[indices[i]]]];
-        segment->vertices.push_back(indices[i]);
+        auto segment = &(*segments_)[parent_to_segment_index[root]];
+        segment->vertices.push_back(index);
     }
     for (size_t i = 0; i < indices.size(); i += 3) {
-        auto segment = &(*segments_)[parent_to_segment_index[merge(parent, indices[i])]];
+        auto segment = &(*segments_)[parent_to_segment_index[merge(parents, indices[i])]];
         segment->triangle_offsets.push_back(i);
     }
 
     // Populate the segmentation data call
-    segmentationCall->SetSegmentation(segments_);
+    segmentationCall->SetSegments(segments_);
     segmentationCall->SetDataHash(hash_);
 
     // Print some information about the segmentation
