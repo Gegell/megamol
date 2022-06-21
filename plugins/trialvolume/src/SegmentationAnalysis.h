@@ -5,8 +5,6 @@
 #include "mmcore/param/ParamSlot.h"
 #include "vislib/math/Cuboid.h"
 
-#include <Eigen/Dense>
-
 namespace megamol::trialvolume {
 
 class SegmentationAnalysis : public core::Module {
@@ -14,13 +12,13 @@ public:
     struct SegmentMetadata {
         int id;
 
-        Eigen::Vector3f centroid;
+        float centroid[3];
         vislib::math::Cuboid<float> bounds;
 
         float volume;
         float surface_area;
 
-        Eigen::Vector3f singular_vals;
+        float singular_vals[3];
     };
 
     /** Return the name of this module. */
@@ -54,13 +52,10 @@ private:
     /**
      * Computes the metrics for the connected segmented mesh call.
      */
-    bool computeMetrics(const MeshSegmentation::Segment& segment, SegmentMetadata& metadata);
+    SegmentMetadata computeMetrics(const MeshSegmentation::Segment& segment, const int id);
 
     /** Callback for the manual triggered analysis. */
     bool buttonPressedCallback(core::param::ParamSlot& slot);
-
-    float signedVolumeOfTriangle(Eigen::Vector3f p1, Eigen::Vector3f p2, Eigen::Vector3f p3);
-    float surfaceAreaOfTriangle(Eigen::Vector3f p1, Eigen::Vector3f p2, Eigen::Vector3f p3);
 
     /** The slot for the mesh data. */
     core::CallerSlot mesh_slot_;
