@@ -9,6 +9,7 @@
 #include "VtrFileReader.h"
 #include "MeshSegmentationCall.h"
 #include "MeshSegmentation.h"
+#include "SegmentationAnalysis.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"
@@ -35,6 +36,7 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VtrFileReader>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentation>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::SegmentationAnalysis>();
 
         // register calls
         call_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentationCall>();

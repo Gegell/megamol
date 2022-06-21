@@ -117,6 +117,14 @@ bool MeshSegmentation::getSegmentationCallback(core::Call& call) {
         segment->triangle_offsets.push_back(i);
     }
 
+    // Add the base data to the segments as well
+    for (size_t i = 0; i < segments_->size(); i++) {
+        auto segment = &(*segments_)[i];
+        segment->base_indices = meshCall->get_indices();
+        segment->base_normals = meshCall->get_normals();
+        segment->base_vertices = meshCall->get_vertices();
+    }
+
     // Populate the segmentation data call
     segmentationCall->SetSegments(segments_);
     segmentationCall->SetDataHash(hash_);

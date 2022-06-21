@@ -36,10 +36,10 @@ public:
     }
 
     /** Get the segmentation data. */
-    std::shared_ptr<std::vector<MeshSegmentation::Segment>> GetSegmentation();
+    std::shared_ptr<std::vector<MeshSegmentation::Segment>> GetSegments();
 
     /** Set the segmentation data. */
-    void SetSegmentation(std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segmentation);
+    void SetSegments(std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segments);
 
 private:
     /** The segments found in the mesh. */

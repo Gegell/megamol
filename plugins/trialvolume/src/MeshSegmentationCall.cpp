@@ -2,11 +2,11 @@
 
 namespace megamol::trialvolume {
 
-std::shared_ptr<std::vector<MeshSegmentation::Segment>> MeshSegmentationCall::GetSegmentation() {
+std::shared_ptr<std::vector<MeshSegmentation::Segment>> MeshSegmentationCall::GetSegments() {
     return segments_;
 }
 
-void MeshSegmentationCall::SetSegmentation(std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segmentation) {
+void MeshSegmentationCall::SetSegments(std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segmentation) {
     segments_ = segmentation;
 }
 

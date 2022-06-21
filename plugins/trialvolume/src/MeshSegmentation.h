@@ -12,6 +12,10 @@ namespace megamol::trialvolume {
 class MeshSegmentation : public core::Module {
 public:
     struct Segment {
+        std::shared_ptr<std::vector<float>> base_vertices;
+        std::shared_ptr<std::vector<float>> base_normals;
+        std::shared_ptr<std::vector<unsigned int>> base_indices;
+
         std::vector<size_t> vertices;
         std::vector<size_t> triangle_offsets;
     };
