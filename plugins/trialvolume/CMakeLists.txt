@@ -8,6 +8,7 @@ megamol_plugin(trailvolume
   DEPENDS_PLUGINS
     geometry_calls
     mesh
+    datatools
     # plugin2
   DEPENDS_EXTERNALS
     voro++
