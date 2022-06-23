@@ -72,7 +72,7 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
     Matrix3Xf vertices_matrix(3, segment.vertices.size());
     for (size_t i = 0; i < segment.vertices.size(); i++) {
         auto offset = segment.vertices[i] * 3;
-        vertices_matrix.col(i) = Vector3fMap(base_vertices.data() + offset);
+        vertices_matrix.col(i) = Vector3fMap(&base_vertices[offset]);
     }
 
     Vector3f min = vertices_matrix.rowwise().minCoeff();
@@ -86,12 +86,11 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
     float surface_area = 0.0f;
 
     for (auto tri : segment.triangle_offsets) {
-        auto v0 = Vector3fMap(base_vertices.data() + base_indices[tri] + 0);
-        auto v1 = Vector3fMap(base_vertices.data() + base_indices[tri] + 3);
-        auto v2 = Vector3fMap(base_vertices.data() + base_indices[tri] + 6);
+        auto v0 = Vector3fMap(&base_vertices[base_indices[tri + 0] * 3]) - center;
+        auto v1 = Vector3fMap(&base_vertices[base_indices[tri + 1] * 3]) - center;
+        auto v2 = Vector3fMap(&base_vertices[base_indices[tri + 2] * 3]) - center;
 
-        // Negate the signed volume, because of the winding order
-        volume += -signedVolumeOfTriangle(v0, v1, v2);
+        volume += signedVolumeOfTriangle(v0, v1, v2);
         surface_area += surfaceAreaOfTriangle(v0, v1, v2);
     }
 
