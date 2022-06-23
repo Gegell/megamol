@@ -112,10 +112,10 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
         "[SegmentationAnalysis]   Centroid: (%f, %f, %f)", center[0], center[1], center[2]);
     core::utility::log::Log::DefaultLog.WriteInfo(
         "[SegmentationAnalysis]   Extents: (%f, %f, %f)", extents[0], extents[1], extents[2]);
-    // core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Volume: %f", volume);
-    // core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Surface area: %f", surface_area);
-    core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Volume to surface area: %f",
-        volume / surface_area);
+    core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Volume: %f", volume);
+    core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Surface area: %f", surface_area);
+    core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Sphericity: %f",
+        std::pow(36.0f * 3.1415926f * volume * volume, 1.0f / 3.0f) / surface_area);
     // core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Singular values: (%f, %f, %f)",
         // metadata.singular_vals[0], metadata.singular_vals[1], metadata.singular_vals[2]);
     core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Singular value ratio (1st to 3rd): %f",
