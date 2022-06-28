@@ -176,10 +176,12 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
     mdc->set_data("surface", output_data_sets_[1]);
     mdc->set_data("volume", output_data_sets_[2]);
     mdc->set_data("sphericity", output_data_sets_[3]);
-    mdc->set_data("singular_vals_largest_to_smallest", output_data_sets_[4]);
+    mdc->set_data("singular_vals_smallest_to_largest", output_data_sets_[4]);
 
     for (auto i = 0; i < output_data_sets_.size(); i++) {
         output_data_sets_[i]->data->resize(input_data_.vertices->size() / 3, -1);
+        output_data_sets_[i]->min_value = 0;
+        output_data_sets_[i]->max_value = 0;
     }
 
     for (auto metrics : segment_metrics_) {
@@ -189,15 +191,14 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
             (*output_data_sets_[1]->data)[vert] = metrics.surface_area;
             (*output_data_sets_[2]->data)[vert] = metrics.volume;
             (*output_data_sets_[3]->data)[vert] = metrics.sphericity;
-            (*output_data_sets_[4]->data)[vert] = metrics.singular_vals[0] / metrics.singular_vals[2];
+            (*output_data_sets_[4]->data)[vert] = metrics.singular_vals[2] / metrics.singular_vals[0];
         }
+        output_data_sets_[1]->max_value = std::max(output_data_sets_[1]->max_value, metrics.surface_area);
+        output_data_sets_[2]->max_value = std::max(output_data_sets_[2]->max_value, metrics.volume);
+        output_data_sets_[3]->max_value = std::max(output_data_sets_[3]->max_value, metrics.sphericity);
+        output_data_sets_[4]->max_value = std::max(output_data_sets_[4]->max_value, metrics.singular_vals[2] / metrics.singular_vals[0]);
     }
-
-    for (auto i = 0; i < output_data_sets_.size(); i++) {
-        auto [min, max] = std::minmax_element(output_data_sets_[i]->data->begin(), output_data_sets_[i]->data->end());
-        output_data_sets_[i]->min_value = *min;
-        output_data_sets_[i]->max_value = *max;
-    }
+    output_data_sets_[0]->max_value = segment_metrics_.size() - 1;
 
     mdc->SetDataHash(hash_);
 
