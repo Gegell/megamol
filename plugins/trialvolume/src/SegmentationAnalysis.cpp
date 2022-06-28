@@ -300,6 +300,7 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
         {svd.singularValues()[0], svd.singularValues()[1], svd.singularValues()[2]}};
 
     // Log information
+#ifdef TRIALVOLUME_VERBOSE
     core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis] Segment %d:", metadata.id);
     core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Vertices: %d", segment.vertices.size());
     core::utility::log::Log::DefaultLog.WriteInfo(
@@ -315,5 +316,6 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
     // metadata.singular_vals[0], metadata.singular_vals[1], metadata.singular_vals[2]);
     core::utility::log::Log::DefaultLog.WriteInfo("[SegmentationAnalysis]   Singular value ratio (1st to 3rd): %f",
         metadata.singular_vals[0] / metadata.singular_vals[2]);
+#endif
     return metadata;
 }
