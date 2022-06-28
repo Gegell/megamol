@@ -7,6 +7,7 @@
 #include "mmcore/CallerSlot.h"
 
 #include "datatools/table/TableDataCall.h"
+#include "mesh/MeshDataCall.h"
 
 namespace megamol::trialvolume {
 
@@ -58,10 +59,20 @@ private:
     /**
      * Computes the metrics for the connected segmented mesh call.
      */
-    SegmentMetadata computeMetrics(const MeshSegmentation::Segment& segment, const int id);
+    SegmentMetadata computeMetrics(
+        const MeshSegmentation::Segment& segment,
+        const int id,
+        const std::vector<float>& vertices,
+        const std::vector<unsigned int>& indices);
 
     /** Computes the new metrics if new data is available. */
     bool recalculateMetrics();
+
+    /** Refresh the input, if necessary. */
+    bool refreshInput();
+
+    /** Check input and recalculate metrics, if necessary. */
+    bool ensureFreshMetrics();
 
     /** Callback for the manual triggered analysis. */
     bool buttonPressedCallback(core::param::ParamSlot& slot);
@@ -69,17 +80,40 @@ private:
     /** Callback for the tabular data call. */
     bool analyzeSegmentsCallback(core::Call& call);
 
+    /** Callback for the mesh data call. */
+    bool meshDataCallCallback(core::Call& call);
+
+    /** Callback for the mesh metadata call. */
+    bool meshMetadataCallCallback(core::Call& call);
+
+    /** Callback for updating the transfer function. */
+    bool transferFunctionCallback(core::param::ParamSlot& param);
+
     /** Callback for getting the hash. */
     bool getHashCallback(core::Call& call);
 
     /** The slot for the mesh data. */
     core::CallerSlot mesh_slot_;
 
+    struct input_t {
+        std::shared_ptr<std::vector<megamol::trialvolume::MeshSegmentation::Segment>> segments;
+        std::shared_ptr<std::vector<float>> vertices;
+        std::shared_ptr<std::vector<unsigned int>> indices;
+
+        size_t hash;
+    } input_data_;
+
+    /** The slot for the data asociated with the mesh. */
+    core::CalleeSlot mesh_data_slot_;
+
     /** Tabular data output. */
     core::CalleeSlot tabular_output_slot_;
 
     /** Button to trigger the analysis. */
     core::param::ParamSlot button_slot_;
+
+    /** Transfer function for the data sets. */
+    core::param::ParamSlot transfer_function_slot_;
 
     /** Store the segmentation metrics. */
     std::vector<SegmentMetadata> segment_metrics_;
@@ -92,6 +126,9 @@ private:
 
     /** The table content */
     std::vector<float> table_content_;
+
+    /** Output data sets. */
+    std::array<std::shared_ptr<mesh::MeshDataCall::data_set>, 5> output_data_sets_;
 };
 
 } // namespace megamol::trialvolume

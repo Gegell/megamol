@@ -36,14 +36,37 @@ public:
     }
 
     /** Get the segmentation data. */
-    std::shared_ptr<std::vector<MeshSegmentation::Segment>> GetSegments();
+    std::shared_ptr<std::vector<MeshSegmentation::Segment>> GetSegments() const;
 
     /** Set the segmentation data. */
-    void SetSegments(std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segments);
+    void SetSegments(const std::shared_ptr<std::vector<MeshSegmentation::Segment>> &segments);
+
+    /** Get the base vertex data. */
+    std::shared_ptr<std::vector<float>> GetBaseVertices() const;
+
+    /** Set the base vertex data. */
+    void SetBaseVertices(const std::shared_ptr<std::vector<float>> &base_vertices);
+
+    /** Get the base normal data. */
+    std::shared_ptr<std::vector<float>> GetBaseNormals() const;
+
+    /** Set the base normal data. */
+    void SetBaseNormals(const std::shared_ptr<std::vector<float>> &base_normals);
+
+    /** Get the base index data. */
+    std::shared_ptr<std::vector<unsigned int>> GetBaseIndices() const;
+
+    /** Set the base index data. */
+    void SetBaseIndices(const std::shared_ptr<std::vector<unsigned int>> &base_indices);
+
 
 private:
     /** The segments found in the mesh. */
     std::shared_ptr<std::vector<MeshSegmentation::Segment>> segments_;
+
+    std::shared_ptr<std::vector<float>> base_vertices_;
+    std::shared_ptr<std::vector<float>> base_normals_;
+    std::shared_ptr<std::vector<unsigned int>> base_indices_;
 };
 
 }
