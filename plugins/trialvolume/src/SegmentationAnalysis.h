@@ -74,9 +74,6 @@ private:
     /** Check input and recalculate metrics, if necessary. */
     bool ensureFreshMetrics();
 
-    /** Callback for the manual triggered analysis. */
-    bool buttonPressedCallback(core::param::ParamSlot& slot);
-
     /** Callback for the tabular data call. */
     bool analyzeSegmentsCallback(core::Call& call);
 
@@ -108,9 +105,6 @@ private:
 
     /** Tabular data output. */
     core::CalleeSlot tabular_output_slot_;
-
-    /** Button to trigger the analysis. */
-    core::param::ParamSlot button_slot_;
 
     /** Transfer function for the data sets. */
     core::param::ParamSlot transfer_function_slot_;

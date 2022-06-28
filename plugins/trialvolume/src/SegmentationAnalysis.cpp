@@ -2,7 +2,6 @@
 #include "MeshSegmentationCall.h"
 
 #include "datatools/table/TableDataCall.h"
-#include "mmcore/param/ButtonParam.h"
 #include "mmcore/param/TransferFunctionParam.h"
 #include "vislib/math/Cuboid.h"
 #include "mesh/MeshDataCall.h"
@@ -15,8 +14,7 @@ SegmentationAnalysis::SegmentationAnalysis()
         : mesh_slot_("mesh", "The mesh data.")
         , mesh_data_slot_("mesh_data", "The analysis data associated with the mesh.")
         , tabular_output_slot_("tabular_output", "The analysis in tabular form.")
-        , transfer_function_slot_("transfer_function", "The transfer function to use for the datasets.")
-        , button_slot_("button", "The button to force analysis.") {
+        , transfer_function_slot_("transfer_function", "The transfer function to use for the datasets.") {
     // Initialize the input mesh data slot
     mesh_slot_.SetCompatibleCall<MeshSegmentationCall::segmentation_description>();
     MakeSlotAvailable(&mesh_slot_);
@@ -27,11 +25,6 @@ SegmentationAnalysis::SegmentationAnalysis()
     tabular_output_slot_.SetCallback(datatools::table::TableDataCall::ClassName(),
         datatools::table::TableDataCall::FunctionName(1), &SegmentationAnalysis::getHashCallback);
     MakeSlotAvailable(&tabular_output_slot_);
-
-    // Initialize the output segmentation data slot
-    button_slot_ << new core::param::ButtonParam();
-    button_slot_.SetUpdateCallback(&SegmentationAnalysis::buttonPressedCallback);
-    MakeSlotAvailable(&button_slot_);
 
     // Initialize the transfer function slot
     transfer_function_slot_ << new core::param::TransferFunctionParam();
@@ -90,10 +83,6 @@ bool SegmentationAnalysis::transferFunctionCallback(core::param::ParamSlot& para
         output_data_sets_[i]->transfer_function_dirty = true;
     }
     return true;
-}
-
-bool SegmentationAnalysis::buttonPressedCallback(core::param::ParamSlot& slot) {
-    return recalculateMetrics();
 }
 
 bool SegmentationAnalysis::analyzeSegmentsCallback(core::Call& call) {
