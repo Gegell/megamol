@@ -26,6 +26,11 @@ public:
         float sphericity;
 
         float singular_vals[3];
+
+        // Corresponds to c_s, c_p and c_l.
+        float spherical_anisotropy;
+        float planar_anisotropy;
+        float linear_anisotropy;
     };
 
     /** Return the name of this module. */
@@ -122,7 +127,7 @@ private:
     std::vector<float> table_content_;
 
     /** Output data sets. */
-    std::array<std::shared_ptr<mesh::MeshDataCall::data_set>, 5> output_data_sets_;
+    std::array<std::shared_ptr<mesh::MeshDataCall::data_set>, 7> output_data_sets_;
 };
 
 } // namespace megamol::trialvolume

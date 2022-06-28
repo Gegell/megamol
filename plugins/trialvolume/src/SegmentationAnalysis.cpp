@@ -33,7 +33,8 @@ SegmentationAnalysis::SegmentationAnalysis()
 
     // Generate the table columns
     std::vector<std::string> column_names = {"ID", "Vertices", "Triangles", "CentroidX", "CentroidY", "CentroidZ",
-        "ExtendsX", "ExtendsY", "ExtendsZ", "Volume", "Surface", "Sphericity", "Singular1", "Singular2", "Singular3"};
+        "ExtendsX", "ExtendsY", "ExtendsZ", "Volume", "Surface", "Sphericity", "Singular1", "Singular2", "Singular3",
+        "Spherical Anisotropy", "Planar Anisotropy", "Linear Anisotropy"};
 
     table_columns_ = {};
     for (auto& column_name : column_names) {
@@ -116,6 +117,9 @@ bool SegmentationAnalysis::analyzeSegmentsCallback(core::Call& call) {
         table_content_.push_back(segment.singular_vals[0]);
         table_content_.push_back(segment.singular_vals[1]);
         table_content_.push_back(segment.singular_vals[2]);
+        table_content_.push_back(segment.spherical_anisotropy);
+        table_content_.push_back(segment.planar_anisotropy);
+        table_content_.push_back(segment.linear_anisotropy);
     }
 
     // Set the actual data call
@@ -141,8 +145,12 @@ bool SegmentationAnalysis::meshMetadataCallCallback(core::Call& _call) {
     call->set_data("volume");
     // sphericity                   - Sphericity of the segment
     call->set_data("sphericity");
-    // singular_vals_largest_to_smallest - Ratio of largest to smallest singular value of the segment
-    call->set_data("singular_vals_largest_to_smallest");
+    // spherical_anisotropy         - Spherical anisotropy of the segment: c_s
+    call->set_data("spherical_anisotropy");
+    // planar_anisotropy            - Planar anisotropy of the segment: c_p
+    call->set_data("planar_anisotropy");
+    // linear_anisotropy            - Linear anisotropy of the segment: c_l
+    call->set_data("linear_anisotropy");
 
     return true;
 }
@@ -162,15 +170,35 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
     }
 
     mdc->set_data("id", output_data_sets_[0]);
+    output_data_sets_[0]->min_value = 0;
+    output_data_sets_[0]->max_value = segment_metrics_.size() - 1;
+
     mdc->set_data("surface", output_data_sets_[1]);
+    output_data_sets_[1]->min_value = 0;
+    output_data_sets_[1]->max_value = 0;
+
     mdc->set_data("volume", output_data_sets_[2]);
+    output_data_sets_[2]->min_value = 0;
+    output_data_sets_[2]->max_value = 0;
+
     mdc->set_data("sphericity", output_data_sets_[3]);
-    mdc->set_data("singular_vals_smallest_to_largest", output_data_sets_[4]);
+    output_data_sets_[3]->min_value = 0;
+    output_data_sets_[3]->max_value = 1;
+
+    mdc->set_data("spherical_anisotropy", output_data_sets_[4]);
+    output_data_sets_[4]->min_value = 0;
+    output_data_sets_[4]->max_value = 1;
+
+    mdc->set_data("planar_anisotropy", output_data_sets_[5]);
+    output_data_sets_[5]->min_value = 0;
+    output_data_sets_[5]->max_value = 1;
+
+    mdc->set_data("linear_anisotropy", output_data_sets_[6]);
+    output_data_sets_[6]->min_value = 0;
+    output_data_sets_[6]->max_value = 1;
 
     for (auto i = 0; i < output_data_sets_.size(); i++) {
         output_data_sets_[i]->data->resize(input_data_.vertices->size() / 3, -1);
-        output_data_sets_[i]->min_value = 0;
-        output_data_sets_[i]->max_value = 0;
     }
 
     for (auto metrics : segment_metrics_) {
@@ -180,14 +208,13 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
             (*output_data_sets_[1]->data)[vert] = metrics.surface_area;
             (*output_data_sets_[2]->data)[vert] = metrics.volume;
             (*output_data_sets_[3]->data)[vert] = metrics.sphericity;
-            (*output_data_sets_[4]->data)[vert] = metrics.singular_vals[2] / metrics.singular_vals[0];
+            (*output_data_sets_[4]->data)[vert] = metrics.spherical_anisotropy;
+            (*output_data_sets_[5]->data)[vert] = metrics.planar_anisotropy;
+            (*output_data_sets_[6]->data)[vert] = metrics.linear_anisotropy;
         }
         output_data_sets_[1]->max_value = std::max(output_data_sets_[1]->max_value, metrics.surface_area);
         output_data_sets_[2]->max_value = std::max(output_data_sets_[2]->max_value, metrics.volume);
-        output_data_sets_[3]->max_value = std::max(output_data_sets_[3]->max_value, metrics.sphericity);
-        output_data_sets_[4]->max_value = std::max(output_data_sets_[4]->max_value, metrics.singular_vals[2] / metrics.singular_vals[0]);
     }
-    output_data_sets_[0]->max_value = segment_metrics_.size() - 1;
 
     mdc->SetDataHash(hash_);
 
@@ -283,10 +310,18 @@ SegmentationAnalysis::SegmentMetadata SegmentationAnalysis::computeMetrics(
     // Compute the singular values
     Eigen::JacobiSVD<Eigen::Matrix3Xf> svd(vertices_matrix);
 
+    // Compute the eigenvalues of the covariance matrix and anisotropy measures from the singular values
+    Vector3f ev = svd.singularValues().array().pow(2) / (segment.vertices.size() - 1);
+    auto ev_sum = ev.sum();
+    float spherical_anisotropy = 3 * ev[2] / ev_sum;
+    float planar_anisotropy = 2 * (ev[1] - ev[2]) / ev_sum;
+    float linear_anisotropy = (ev[0] - ev[1]) / ev_sum;
+
     // Generate the metadata
     struct SegmentMetadata metadata = {id, segment.vertices.size(), segment.triangle_offsets.size(),
         {center[0], center[1], center[2]}, {extents[0], extents[1], extents[2]}, volume, surface_area, sphericity,
-        {svd.singularValues()[0], svd.singularValues()[1], svd.singularValues()[2]}};
+        {svd.singularValues()[0], svd.singularValues()[1], svd.singularValues()[2]},
+        spherical_anisotropy, planar_anisotropy, linear_anisotropy};
 
     // Log information
 #ifdef TRIALVOLUME_VERBOSE
