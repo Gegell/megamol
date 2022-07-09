@@ -72,8 +72,8 @@ void SegmentationAnalysis::release(void) {
 }
 
 bool SegmentationAnalysis::getHashCallback(core::Call& call) {
-    auto& c = dynamic_cast<datatools::table::TableDataCall&>(call);
-    c.SetDataHash(hash_);
+    // TODO Do we actually need to get a separate hash here?
+    // Is it not just sufficient to just set the hash in the analysis call?
     return true;
 }
 
