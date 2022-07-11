@@ -1,6 +1,8 @@
 #include "SegmentationAnalysis.h"
 #include "MeshSegmentationCall.h"
 
+#include "omp.h"
+
 #include "datatools/table/TableDataCall.h"
 #include "mmcore/param/TransferFunctionParam.h"
 #include "vislib/math/Cuboid.h"
@@ -197,12 +199,15 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
     output_data_sets_[6]->min_value = 0;
     output_data_sets_[6]->max_value = 1;
 
+#pragma omp parallel for
     for (auto i = 0; i < output_data_sets_.size(); i++) {
         output_data_sets_[i]->data->resize(input_data_.vertices->size() / 3, -1);
     }
 
-    for (auto metrics : segment_metrics_) {
-        auto segment = input_data_.segments->at(metrics.id);
+#pragma omp parallel for
+    for (auto i = 0; i < segment_metrics_.size(); i++) {
+        auto const metrics = segment_metrics_[i];
+        auto const segment = input_data_.segments->at(metrics.id);
         for (auto vert : segment.vertices) {
             (*output_data_sets_[0]->data)[vert] = metrics.id;
             (*output_data_sets_[1]->data)[vert] = metrics.surface_area;
@@ -253,10 +258,11 @@ bool SegmentationAnalysis::recalculateMetrics() {
     }
 
     // Compute the metrics
-    segment_metrics_.clear();
-    for (auto& segment : *input_data_.segments) {
-        int segment_id = segment_metrics_.size();
-        segment_metrics_.push_back(computeMetrics(segment, segment_id, *input_data_.vertices, *input_data_.indices));
+    segment_metrics_.resize(input_data_.segments->size());
+    #pragma omp parallel for
+    for (auto segment_id = 0; segment_id < input_data_.segments->size(); segment_id++) {
+        auto segment = input_data_.segments->at(segment_id);
+        segment_metrics_[segment_id] = computeMetrics(segment, segment_id, *input_data_.vertices, *input_data_.indices);
     }
 
     hash_ = input_data_.hash;
