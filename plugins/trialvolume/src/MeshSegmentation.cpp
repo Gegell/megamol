@@ -127,10 +127,12 @@ bool MeshSegmentation::getSegmentationCallback(core::Call& call) {
 
     // Print some information about the segmentation
     core::utility::log::Log::DefaultLog.WriteInfo("Segmentation has %d segments", segments_->size());
+#ifdef TRIALVOLUME_VERBOSE
     for (size_t i = 0; i < segments_->size(); i++) {
         core::utility::log::Log::DefaultLog.WriteInfo("Segment %d has %d vertices and %d triangles",
             i, (*segments_)[i].vertices.size(), (*segments_)[i].triangle_offsets.size());
     }
+#endif
 
     return true;
 }
