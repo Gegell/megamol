@@ -236,11 +236,6 @@ bool SegmentationAnalysis::refreshInput() {
     if (segmentation_call == nullptr) {
         return false;
     }
-
-    // Check whether we have to recalculate the metrics
-    if (segmentation_call->DataHash() == input_data_.hash) {
-        return true;
-    }
     (*segmentation_call)(0);
 
     // Get the segments
