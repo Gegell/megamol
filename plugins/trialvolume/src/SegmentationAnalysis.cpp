@@ -164,11 +164,11 @@ bool SegmentationAnalysis::meshDataCallCallback(core::Call& call) {
     if (mdc == nullptr) {
         return false;
     }
-    if (mdc->DataHash() == hash_) {
-        return true;
-    }
     if (!ensureFreshMetrics()) {
         return false;
+    }
+    if (mdc->DataHash() == hash_) {
+        return true;
     }
 
     mdc->set_data("id", output_data_sets_[0]);
