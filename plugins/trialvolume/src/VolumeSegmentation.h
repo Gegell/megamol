@@ -31,7 +31,7 @@ private:
 
     bool create() override;
 
-    bool release() override;
+    void release() override;
 
     inline bool anythingDirty() const {
         return false;
@@ -40,9 +40,11 @@ private:
     inline void resetDirtyFlags() {
     }
 
-    bool getData(core::Call& call) override;
+    bool getDataCallback(core::Call& call);
 
-    bool getExtent(core::Call& call) override;
+    bool getExtentCallback(core::Call& call);
+
+    bool dummyCallback(core::Call& call);
 
     bool computeSegmentation(geocalls::VolumetricDataCall& call);
 
@@ -59,5 +61,7 @@ private:
     float absolute_iso_level_;
 
     /** The hash of when the input data was last read */
-    std::size_t input_data_hash_;
-}
+    size_t input_data_hash_;
+};
+
+} // namespace megamol::trialvolume
