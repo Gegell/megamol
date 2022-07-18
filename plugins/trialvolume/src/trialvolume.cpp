@@ -7,6 +7,7 @@
 #include "DualContouring.h"
 #include "ParticleToVolume.h"
 #include "VtrFileReader.h"
+#include "VolumeSegmentation.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"
@@ -32,6 +33,7 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VtrFileReader>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeSegmentation>();
         //
         // TODO: Register your plugin's modules here:
         // module_descriptions.RegisterAutoDescription<megamol::trialvolume::MyModule1>();
