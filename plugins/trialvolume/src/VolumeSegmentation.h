@@ -73,6 +73,9 @@ private:
 
     /** The metadata of the segmentation */
     geocalls::VolumetricDataCall::Metadata segment_metadata_;
+
+    /** The current output hash */
+    size_t output_hash_;
 };
 
 } // namespace megamol::trialvolume

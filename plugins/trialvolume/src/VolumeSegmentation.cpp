@@ -5,6 +5,7 @@
 
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/FloatParam.h"
+#include "mmcore/utility/DataHash.h"
 
 using megamol::trialvolume::VolumeSegmentation;
 
@@ -100,8 +101,7 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         auto threshold = metadata->MinValues[0] + iso_level * (metadata->MaxValues[0] - metadata->MinValues[0]);
         // TODO might need to be replaced with only the absolute iso level instead of relative
         // as the min and max values are not necessarily the same for different frames
-        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] iso level: %f, threshold: %f", iso_level, threshold);
-
+        
         // Fetch the volume data
         auto* volume_data = static_cast<float*>(in_volume_data_call->GetData());
 
@@ -122,6 +122,9 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
             }
         }
 
+        // Compute the new output hash
+        output_hash_ = megamol::core::utility::DataHash(iso_level, input_data_hash_);
+
         megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] Found %lld segments", segment_count_);
     }
 
@@ -131,12 +134,12 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
     segment_metadata_.MaxValues[0] = static_cast<double>(segment_count_);
     segment_metadata_.ScalarType = geocalls::ScalarType_t::UNSIGNED_INTEGER;
     segment_metadata_.ScalarLength = sizeof(uint16_t);
-    
+
     // Set the segmentation data
     call.SetMetadata(&segment_metadata_);
     call.SetFrameID(in_volume_data_call->FrameID());
     call.SetData(segment_ids_.data());
-    call.SetDataHash(input_data_hash_);
+    call.SetDataHash(output_hash_);
 
     return true;
 }
