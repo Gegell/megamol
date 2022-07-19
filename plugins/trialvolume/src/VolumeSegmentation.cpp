@@ -38,7 +38,7 @@ VolumeSegmentation::VolumeSegmentation(void)
     MakeSlotAvailable(&out_volume_segment_data_slot_);
 
     // Setup the iso level slot
-    iso_level_slot_.SetParameter(new core::param::FloatParam(0.5f, 0.0f, 1.0f));
+    iso_level_slot_.SetParameter(new core::param::FloatParam(0.5f, 0.0f, 1.0f, 0.05f));
     MakeSlotAvailable(&iso_level_slot_);
 }
 
@@ -100,12 +100,14 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         auto threshold = metadata->MinValues[0] + iso_level * (metadata->MaxValues[0] - metadata->MinValues[0]);
         // TODO might need to be replaced with only the absolute iso level instead of relative
         // as the min and max values are not necessarily the same for different frames
+        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] iso level: %f, threshold: %f", iso_level, threshold);
 
         // Fetch the volume data
         auto* volume_data = static_cast<float*>(in_volume_data_call->GetData());
 
         // Initialize the volume segmentation data like the volume data
         segment_ids_.resize(metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2], 0);
+        std::fill(segment_ids_.begin(), segment_ids_.end(), 0);
         segment_count_ = 0;
 
         // Iterate over all indices and start region growing if the density is above the iso level

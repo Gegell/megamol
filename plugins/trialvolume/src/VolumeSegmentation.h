@@ -32,10 +32,12 @@ private:
     void release() override;
 
     inline bool anythingDirty() const {
-        return false;
+        return iso_level_slot_.IsDirty();
     }
 
-    inline void resetDirtyFlags() {}
+    inline void resetDirtyFlags() {
+        iso_level_slot_.ResetDirty();
+    }
 
     bool getDataCallback(core::Call& call);
 
