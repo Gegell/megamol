@@ -106,8 +106,8 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         auto* volume_data = static_cast<float*>(in_volume_data_call->GetData());
 
         // Initialize the volume segmentation data like the volume data
-        segment_ids_.resize(metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2], 0);
-        std::fill(segment_ids_.begin(), segment_ids_.end(), 0);
+        segment_ids_.resize(metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2], static_cast<segmentId_t>(0));
+        std::fill(segment_ids_.begin(), segment_ids_.end(), static_cast<segmentId_t>(0));
         segment_count_ = 0;
 
         // Iterate over all indices and start region growing if the density is above the iso level
@@ -132,30 +132,37 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
     segment_metadata_ = metadata->Clone();
     segment_metadata_.MinValues[0] = 0.0f;
     segment_metadata_.MaxValues[0] = static_cast<double>(segment_count_);
-    segment_metadata_.ScalarType = geocalls::ScalarType_t::UNSIGNED_INTEGER;
-    segment_metadata_.ScalarLength = sizeof(uint16_t);
+    segment_metadata_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
+    segment_metadata_.ScalarLength = sizeof(segmentId_t);
 
     // Set the segmentation data
     call.SetMetadata(&segment_metadata_);
     call.SetFrameID(in_volume_data_call->FrameID());
     call.SetData(segment_ids_.data());
     call.SetDataHash(output_hash_);
+    call.SetExtent(1, segment_metadata_.Origin[0], segment_metadata_.Origin[1], segment_metadata_.Origin[2],
+        segment_metadata_.Origin[0] + segment_metadata_.Extents[0],
+        segment_metadata_.Origin[1] + segment_metadata_.Extents[1],
+        segment_metadata_.Origin[2] + segment_metadata_.Extents[2]);
 
     return true;
 }
 
 void VolumeSegmentation::regionGrow(const size_t x, const size_t y, const size_t z,
-    const geocalls::VolumetricMetadata_t& meta, const float* data, const float threshold, const uint16_t label) {
+    const geocalls::VolumetricMetadata_t& meta, const float* data, const float threshold, const segmentId_t label) {
     typedef std::tuple<size_t, size_t, size_t> cellPos_t;
 
     auto to_check = std::stack<cellPos_t>();
     to_check.push(std::make_tuple(x, y, z));
+
+    auto typed_label = static_cast<segmentId_t>(label);
+
     while (!to_check.empty()) {
         auto [x, y, z] = to_check.top();
         to_check.pop();
         size_t index = x + y * meta.Resolution[0] + z * meta.Resolution[0] * meta.Resolution[1];
-        if (segment_ids_[index] != label && data[index] > threshold) {
-            segment_ids_[index] = label;
+        if (segment_ids_[index] != typed_label && data[index] > threshold) {
+            segment_ids_[index] = typed_label;
             if (z > 0) {
                 to_check.push(std::make_tuple(x, y, z - 1));
             }
