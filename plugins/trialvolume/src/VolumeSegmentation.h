@@ -10,7 +10,6 @@ namespace megamol::trialvolume {
 
 class VolumeSegmentation : public core::Module {
 public:
-
     static const char* ClassName() {
         return "VolumeSegmentation";
     }
@@ -28,7 +27,6 @@ public:
     ~VolumeSegmentation() override;
 
 private:
-
     bool create() override;
 
     void release() override;
@@ -37,8 +35,7 @@ private:
         return false;
     }
 
-    inline void resetDirtyFlags() {
-    }
+    inline void resetDirtyFlags() {}
 
     bool getDataCallback(core::Call& call);
 
@@ -47,6 +44,9 @@ private:
     bool dummyCallback(core::Call& call);
 
     bool computeSegmentation(geocalls::VolumetricDataCall& call);
+
+    void regionGrow(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricMetadata_t& meta,
+        const float* data, const float threshold, const uint32_t label);
 
     /** The slot for the volume data */
     core::CallerSlot in_volume_data_slot_;
@@ -62,6 +62,15 @@ private:
 
     /** The hash of when the input data was last read */
     size_t input_data_hash_;
+
+    /** The volume metadata */
+    megamol::geocalls::VolumetricDataCall::Metadata metadata_;
+
+    /** The segment ids per voxel */
+    std::vector<uint32_t> segment_ids_;
+
+    /** The total number of segments */
+    uint32_t segment_count_;
 };
 
 } // namespace megamol::trialvolume
