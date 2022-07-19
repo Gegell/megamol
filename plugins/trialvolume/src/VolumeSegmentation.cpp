@@ -112,7 +112,7 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         for (size_t z = 0, index = 0; z < metadata->Resolution[2]; z++) {
             for (size_t y = 0; y < metadata->Resolution[1]; y++) {
                 for (size_t x = 0; x < metadata->Resolution[0]; x++, index++) {
-                    if (segment_ids_[index] == 0 && volume_data[index] > absolute_iso_level_) {
+                    if (segment_ids_[index] == 0 && volume_data[index] > threshold) {
                         segment_count_++;
                         regionGrow(x, y, z, *metadata, volume_data, threshold, segment_count_);
                     }
@@ -120,25 +120,27 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
             }
         }
 
-        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] Found %d segments", segment_count_);
+        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] Found %lld segments", segment_count_);
     }
 
     // Copy most of the previous metadata attributes to the given call
-    geocalls::VolumetricMetadata_t segment_metadata = metadata->Clone();
-    segment_metadata.MinValues[0] = 0.0f;
-    segment_metadata.MaxValues[0] = static_cast<float>(segment_count_);
-    segment_metadata.ScalarType = geocalls::ScalarType_t::UNSIGNED_INTEGER;
-    segment_metadata.ScalarLength = sizeof(uint32_t);
+    segment_metadata_ = metadata->Clone();
+    segment_metadata_.MinValues[0] = 0.0f;
+    segment_metadata_.MaxValues[0] = static_cast<double>(segment_count_);
+    segment_metadata_.ScalarType = geocalls::ScalarType_t::UNSIGNED_INTEGER;
+    segment_metadata_.ScalarLength = sizeof(uint16_t);
     
     // Set the segmentation data
-    call.SetMetadata(&segment_metadata);
-    call.SetData(&segment_ids_, 1);
+    call.SetMetadata(&segment_metadata_);
+    call.SetFrameID(in_volume_data_call->FrameID());
+    call.SetData(segment_ids_.data());
+    call.SetDataHash(input_data_hash_);
 
     return true;
 }
 
 void VolumeSegmentation::regionGrow(const size_t x, const size_t y, const size_t z,
-    const geocalls::VolumetricMetadata_t& meta, const float* data, const float threshold, const uint32_t label) {
+    const geocalls::VolumetricMetadata_t& meta, const float* data, const float threshold, const uint16_t label) {
     typedef std::tuple<size_t, size_t, size_t> cellPos_t;
 
     auto to_check = std::stack<cellPos_t>();
@@ -149,11 +151,11 @@ void VolumeSegmentation::regionGrow(const size_t x, const size_t y, const size_t
         size_t index = x + y * meta.Resolution[0] + z * meta.Resolution[0] * meta.Resolution[1];
         if (segment_ids_[index] != label && data[index] > threshold) {
             segment_ids_[index] = label;
-            if (x > 0) {
-                to_check.push(std::make_tuple(x - 1, y, z));
+            if (z > 0) {
+                to_check.push(std::make_tuple(x, y, z - 1));
             }
-            if (x < meta.Resolution[0] - 1) {
-                to_check.push(std::make_tuple(x + 1, y, z));
+            if (z < meta.Resolution[2] - 1) {
+                to_check.push(std::make_tuple(x, y, z + 1));
             }
             if (y > 0) {
                 to_check.push(std::make_tuple(x, y - 1, z));
@@ -161,11 +163,11 @@ void VolumeSegmentation::regionGrow(const size_t x, const size_t y, const size_t
             if (y < meta.Resolution[1] - 1) {
                 to_check.push(std::make_tuple(x, y + 1, z));
             }
-            if (z > 0) {
-                to_check.push(std::make_tuple(x, y, z - 1));
+            if (x > 0) {
+                to_check.push(std::make_tuple(x - 1, y, z));
             }
-            if (z < meta.Resolution[2] - 1) {
-                to_check.push(std::make_tuple(x, y, z + 1));
+            if (x < meta.Resolution[0] - 1) {
+                to_check.push(std::make_tuple(x + 1, y, z));
             }
         }
     }

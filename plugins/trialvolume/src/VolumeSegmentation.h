@@ -46,7 +46,7 @@ private:
     bool computeSegmentation(geocalls::VolumetricDataCall& call);
 
     void regionGrow(const size_t x, const size_t y, const size_t z, const geocalls::VolumetricMetadata_t& meta,
-        const float* data, const float threshold, const uint32_t label);
+        const float* data, const float threshold, const uint16_t label);
 
     /** The slot for the volume data */
     core::CallerSlot in_volume_data_slot_;
@@ -57,9 +57,6 @@ private:
     /** The slot for the iso level */
     core::param::ParamSlot iso_level_slot_;
 
-    /** The absolute iso level */
-    float absolute_iso_level_;
-
     /** The hash of when the input data was last read */
     size_t input_data_hash_;
 
@@ -67,10 +64,13 @@ private:
     megamol::geocalls::VolumetricDataCall::Metadata metadata_;
 
     /** The segment ids per voxel */
-    std::vector<uint32_t> segment_ids_;
+    std::vector<uint16_t> segment_ids_;
 
     /** The total number of segments */
-    uint32_t segment_count_;
+    size_t segment_count_;
+
+    /** The metadata of the segmentation */
+    geocalls::VolumetricDataCall::Metadata segment_metadata_;
 };
 
 } // namespace megamol::trialvolume
