@@ -8,6 +8,7 @@
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
 #include "vislib/math/Cuboid.h"
+#include "mmcore/param/ParamSlot.h"
 
 namespace megamol::trialvolume {
 
@@ -58,6 +59,9 @@ private:
     /** Gets the data of the tracked clusters */
     bool getDataCallback(core::Call& call);
 
+    /** Start via button press callback */
+    bool buttonCallback(core::param::ParamSlot& param);
+
     /** Computes the newest tracks, if any are available */
     void computeTracks(void);
 
@@ -67,7 +71,13 @@ private:
     /** The slot for the particle cluster call, for one time step */
     megamol::core::CallerSlot in_cluster_slot_;
 
+    /** The param slot for the manual start button */
+    megamol::core::param::ParamSlot start_button_;
+
     /** Store a mapping from the track unique id to the metadata of the time slices */
     std::vector<ClusterMetadata_t> cluster_metadata_;
+
+    /** The hash of the last cluster call */
+    size_t hash_;
 };
 } // namespace megamol::trialvolume
