@@ -162,7 +162,14 @@ void ParticleClusterTracking::computeTracks(void) {
                 }
                 auto& cluster = cluster_metadata_[cur_list_offset + id];
                 // TODO this bbox still has the 0,0,0 point unjustly included
-                cluster.bounding_box.GrowToPoint(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
+                if (cluster.bounding_box.IsEmpty()) {
+                    cluster.bounding_box.Set(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx),
+                        acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
+                    cluster.bounding_box.Grow(1e-4f);
+                } else {
+                    cluster.bounding_box.GrowToPoint(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
+                }
+                cluster.num_particles++;
 
                 // 3.3. Mark the cluster as connected to the previous time step
                 if (acc_prev_cluster_id.size() > 0) {
