@@ -77,7 +77,8 @@ void ParticleClusterTracking::computeTracks(void) {
     cluster_metadata_.clear();
 
     // Keep track of the previous id accessor here
-    std::vector<std::shared_ptr<geocalls::Accessor>> acc_prev_cluster_id;
+    typedef std::map<size_t, size_t> particle_cluster_id_map_t;
+    std::vector<particle_cluster_id_map_t> cached_cluster_ids;
 
     // Iterate over every time step t
     for (size_t t = 0; t < in_cluster_call->FrameCount(); t++) {
@@ -132,36 +133,37 @@ void ParticleClusterTracking::computeTracks(void) {
             max = std::max(max, parts.GetMaxColourIndexValue());
         }
         // 2. Reserve the amount of new clusters we have in the current time step
-        auto new_cluster_count = static_cast<size_t>(max) + 1;
-        auto cur_list_offset = cluster_metadata_.size();
+        auto new_cluster_count = (static_cast<size_t>(max) + 1) - 2;
+        auto& current_cluster_list = cluster_metadata_.emplace_back(new_cluster_count);
         for (auto i = 0; i < new_cluster_count; i++) {
-            cluster_metadata_.emplace_back();
-            cluster_metadata_.back().frame_id = t;
-            cluster_metadata_.back().local_time_cluster_id = i;
+            current_cluster_list[i].local_time_cluster_id = i;
+            current_cluster_list[i].frame_id = t;
         }
 
         // Note however that id 0 is reserved for unassigned particles
         // and id 1 is reserved for too sparse particles
 
-        // 3. Iterate over all particles in the current time step and
+        // 3. Iterate over all particles in the current time step
         for (size_t pl_idx = 0; pl_idx < in_cluster_call->GetParticleListCount(); pl_idx++) {
             auto& parts = in_cluster_call->AccessParticles(pl_idx);
             auto ps = parts.GetParticleStore();
 
             // 3.1. Extract the cluster ID (colour index)
             auto acc_cluster_id = ps.GetCRAcc();
+            auto acc_particle_id = ps.GetIDAcc();
 
-            // 3.2. Expand the cluster bounding box to include the particle
             auto acc_x = ps.GetXAcc();
             auto acc_y = ps.GetYAcc();
             auto acc_z = ps.GetZAcc();
             for (size_t p_idx = 0; p_idx < parts.GetCount(); p_idx++) {
-                auto id = acc_cluster_id->Get_u32(p_idx);
-                if (id <= 1) {
+                auto c_id = acc_cluster_id->Get_u32(p_idx);
+                if (c_id <= 1) {
                     continue;
                 }
-                auto& cluster = cluster_metadata_[cur_list_offset + id];
-                // TODO this bbox still has the 0,0,0 point unjustly included
+                c_id -= 2;
+                auto& cluster = current_cluster_list[c_id];
+
+                // 3.2. Expand the cluster bounding box to include the particle
                 if (cluster.bounding_box.IsEmpty()) {
                     cluster.bounding_box.Set(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx),
                         acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
@@ -172,29 +174,50 @@ void ParticleClusterTracking::computeTracks(void) {
                 cluster.num_particles++;
 
                 // 3.3. Mark the cluster as connected to the previous time step
-                if (acc_prev_cluster_id.size() > 0) {
+                if (cached_cluster_ids.size() > 0) {
                     // TODO check if particle list size stays the same size between frames
-                    auto prev_id = acc_prev_cluster_id[pl_idx]->Get_u32(p_idx);
-                    if (prev_id > 1) {
-                        cluster.parents.insert(cur_list_offset + prev_id);
+                    auto map = cached_cluster_ids[pl_idx];
+                    auto p_id = acc_particle_id->Get_u32(p_idx);
+                    if (map.find(p_id) != map.end()) {
+                        auto prev_cluster_id = map[p_id];
+                        cluster.parents[prev_cluster_id]++;
                     }
                 }
             }
         }
 
         // 4. Store the previous id accessor for the next time step
-        acc_prev_cluster_id.clear();
+        cached_cluster_ids.clear();
         for (size_t pl_idx = 0; pl_idx < in_cluster_call->GetParticleListCount(); pl_idx++) {
             auto& parts = in_cluster_call->AccessParticles(pl_idx);
             auto ps = parts.GetParticleStore();
-            acc_prev_cluster_id.push_back(ps.GetCRAcc());
+
+            auto acc_id = ps.GetIDAcc();
+            auto acc_cluster_id = ps.GetCRAcc();
+            // Keep the previous id alive for the next time step
+            particle_cluster_id_map_t particle_cluster_map;
+            for (size_t p_idx = 0; p_idx < parts.GetCount(); p_idx++) {
+                auto p_id = acc_id->Get_u32(p_idx);
+                auto c_id = acc_cluster_id->Get_u32(p_idx);
+                if (c_id <= 1) {
+                    continue;
+                }
+                particle_cluster_map[p_id] = c_id - 2;
+            }
+            cached_cluster_ids.push_back(particle_cluster_map);
         }
 
         // 5. Report some statistics
-        for (auto c_idx = cur_list_offset; c_idx < cluster_metadata_.size(); c_idx++) {
-            auto& cluster = cluster_metadata_[c_idx];
-            if (cluster.parents.size() > 0) {
-                megamol::core::utility::log::Log::DefaultLog.WriteInfo("[ParticleClusterTracking] Cluster %d has %d parents.", c_idx, cluster.parents.size());
+        for (auto& cluster : current_cluster_list) {
+            megamol::core::utility::log::Log::DefaultLog.WriteInfo(
+                "[ParticleClusterTracking] Cluster (%d,%d) has %d parents, with %d particles.", cluster.frame_id,
+                cluster.local_time_cluster_id, cluster.parents.size(), cluster.num_particles);
+            for (auto& p : cluster.parents) {
+                auto parent_cluster = cluster_metadata_[cluster_metadata_.size() - 2][p.first];
+                megamol::core::utility::log::Log::DefaultLog.WriteInfo(
+                    "[ParticleClusterTracking] Cluster (%d,%d) has parent (%d,%d) with %d connections.",
+                    cluster.frame_id, cluster.local_time_cluster_id, parent_cluster.frame_id,
+                    parent_cluster.local_time_cluster_id, p.second);
             }
         }
     }

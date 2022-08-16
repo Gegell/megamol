@@ -1,14 +1,14 @@
 #pragma once
 
+#include <map>
 #include <vector>
-#include <set>
 
 #include "geometry_calls/MultiParticleDataCall.h"
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
 #include "mmcore/Module.h"
-#include "vislib/math/Cuboid.h"
 #include "mmcore/param/ParamSlot.h"
+#include "vislib/math/Cuboid.h"
 
 namespace megamol::trialvolume {
 
@@ -20,7 +20,8 @@ public:
     struct ClusterMetadata_t {
         unsigned int local_time_cluster_id;
         unsigned int frame_id;
-        std::set<track_unique_id_t> parents;
+        std::map<size_t, size_t> parents;
+        unsigned int num_particles;
 
         vislib::math::Cuboid<float> bounding_box;
     };
@@ -74,8 +75,8 @@ private:
     /** The param slot for the manual start button */
     megamol::core::param::ParamSlot start_button_;
 
-    /** Store a mapping from the track unique id to the metadata of the time slices */
-    std::vector<ClusterMetadata_t> cluster_metadata_;
+    /** Store a the cluster metadata for each time slice */
+    std::vector<std::vector<ClusterMetadata_t>> cluster_metadata_;
 
     /** The hash of the last cluster call */
     size_t hash_;
