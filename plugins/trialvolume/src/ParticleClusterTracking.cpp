@@ -66,7 +66,11 @@ void ParticleClusterTracking::computeTracks(void) {
     // get the needed metadata like frame count set as well.
     in_cluster_call->SetFrameID(0, true);
     if (!(*in_cluster_call)(1)) {
-        megamol::core::utility::log::Log::DefaultLog.WriteError("[ParticleClusterTracking] Failed to get data for frame 0");
+        megamol::core::utility::log::Log::DefaultLog.WriteError(
+            "[ParticleClusterTracking] Failed to get extents for frame 0");
+        // If we fail here we cannot do anything as we do not know how many
+        // frames we have to iterate over.
+        return;
     }
 
     // First reset the current tracks
@@ -79,8 +83,43 @@ void ParticleClusterTracking::computeTracks(void) {
     for (size_t t = 0; t < in_cluster_call->FrameCount(); t++) {
         // Get the current cluster call
         in_cluster_call->SetFrameID(t);
-        if (!(*in_cluster_call)(0)) {
-            megamol::core::utility::log::Log::DefaultLog.WriteError("[ParticleClusterTracking] Failed to get cluster call for frame %d, skipping.", t);
+        bool found_frame_data = true;
+        do {
+            if (!(*in_cluster_call)(1)) {
+                megamol::core::utility::log::Log::DefaultLog.WriteError(
+                    "[ParticleClusterTracking] Failed to get extents for frame t");
+                found_frame_data = false;
+            }
+            if (!(*in_cluster_call)(0)) {
+                megamol::core::utility::log::Log::DefaultLog.WriteError(
+                    "[ParticleClusterTracking] Failed to get cluster call for frame %d, skipping.", t);
+                found_frame_data = false;
+            }
+        } while (in_cluster_call->FrameID() != t);
+        if (!found_frame_data) {
+            continue;
+        }
+
+        // Check that the needed data is here)
+        bool passed_checks = in_cluster_call->GetParticleListCount() > 0;
+        for (size_t pl_idx = 0; pl_idx < in_cluster_call->GetParticleListCount(); pl_idx++) {
+            auto& parts = in_cluster_call->AccessParticles(pl_idx);
+            if (parts.GetColourDataType() != geocalls::SimpleSphericalParticles::COLDATA_FLOAT_I &&
+                parts.GetColourDataType() != geocalls::SimpleSphericalParticles::COLDATA_DOUBLE_I) {
+                core::utility::log::Log::DefaultLog.WriteError(
+                    "[ParticleClusterTracking] Particle list %d, frame %d has no intensity colour data, skipping.",
+                    pl_idx, t);
+                passed_checks = false;
+                break;
+            }
+            if (!parts.HasID()) {
+                core::utility::log::Log::DefaultLog.WriteError(
+                    "[ParticleClusterTracking] Particle list %d, frame %d has no ID data, skipping.", pl_idx, t);
+                passed_checks = false;
+                break;
+            }
+        }
+        if (!passed_checks) {
             continue;
         }
 
