@@ -3,13 +3,17 @@
 #include "datatools/table/TableDataCall.h"
 #include "geometry_calls/MultiParticleDataCall.h"
 #include "mmcore/param/ButtonParam.h"
+#include "mmcore/param/FilePathParam.h"
+
+#include <fstream>
 
 using namespace megamol::trialvolume;
 
 ParticleClusterTracking::ParticleClusterTracking()
         : in_cluster_slot_("in_cluster", "The particle cluster call")
         , out_cluster_track_slot_("out_cluster_track", "The cluster track call")
-        , start_button_("start", "Start tracking") {
+        , start_button_("start", "Start tracking")
+        , dot_file_name_("dot_file_name", "The file name for the .dot file") {
     // Setup the input slot
     in_cluster_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
     MakeSlotAvailable(&in_cluster_slot_);
@@ -20,6 +24,10 @@ ParticleClusterTracking::ParticleClusterTracking()
     out_cluster_track_slot_.SetCallback(datatools::table::TableDataCall::ClassName(),
         datatools::table::TableDataCall::FunctionName(1), &ParticleClusterTracking::getExtentCallback);
     MakeSlotAvailable(&out_cluster_track_slot_);
+
+    // Setup the dot file name
+    dot_file_name_.SetParameter(new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
+    MakeSlotAvailable(&dot_file_name_);
 
     // Setup manual start button
     start_button_.SetParameter(new core::param::ButtonParam());
@@ -47,6 +55,7 @@ bool ParticleClusterTracking::getDataCallback(core::Call& call) {
 
 bool ParticleClusterTracking::buttonCallback(core::param::ParamSlot& param) {
     computeTracks();
+    generateDotFile();
     return true;
 }
 
@@ -221,4 +230,37 @@ void ParticleClusterTracking::computeTracks(void) {
             }
         }
     }
+}
+
+void ParticleClusterTracking::generateDotFile(void) {
+    auto filename = dot_file_name_.Param<core::param::FilePathParam>()->Value();
+    if (filename.empty()) {
+        megamol::core::utility::log::Log::DefaultLog.WriteError(
+            "[ParticleClusterTracking] No filename specified for dot file.");
+        return;
+    }
+    std::ofstream dot_file(filename.generic_u8string().c_str());
+    dot_file << "digraph G {" << std::endl;
+
+    // Iterate over all time steps
+    for (size_t t = 0; t < cluster_metadata_.size(); t++) {
+        auto& cluster_list = cluster_metadata_[t];
+        // Iterate over all clusters in the current time step
+        for (auto& cluster : cluster_list) {
+            // Iterate over all parents of the current cluster and write the edges
+            // connecting the current cluster to the previous time steps clusters
+            for (auto& p : cluster.parents) {
+                auto parent_cluster = cluster_metadata_[t - 1][p.first];
+                dot_file << "\"" << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\"";
+                dot_file << " -> ";
+                dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
+                dot_file << " [label=\"" << p.second << "\"];" << std::endl;
+            }
+            // Output the current cluster as a node
+            dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
+            dot_file << " [label=\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << " ("
+                     << cluster.num_particles << ")\"];" << std::endl;
+        }
+    }
+    dot_file << "}" << std::endl;
 }

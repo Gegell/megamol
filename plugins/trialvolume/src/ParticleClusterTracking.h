@@ -66,6 +66,9 @@ private:
     /** Computes the newest tracks, if any are available */
     void computeTracks(void);
 
+    /** Generate a corresponding .dot file for the current tracks */
+    void generateDotFile(void);
+
     /** The slot for the cluster track call */
     megamol::core::CalleeSlot out_cluster_track_slot_;
 
@@ -74,6 +77,9 @@ private:
 
     /** The param slot for the manual start button */
     megamol::core::param::ParamSlot start_button_;
+
+    /** The file name for the .dot file */
+    megamol::core::param::ParamSlot dot_file_name_;
 
     /** Store a the cluster metadata for each time slice */
     std::vector<std::vector<ClusterMetadata_t>> cluster_metadata_;
