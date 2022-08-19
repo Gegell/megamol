@@ -4,6 +4,7 @@
 #include "geometry_calls/MultiParticleDataCall.h"
 #include "mmcore/param/ButtonParam.h"
 #include "mmcore/param/FilePathParam.h"
+#include "mmcore/param/IntParam.h"
 
 #include <fstream>
 
@@ -13,6 +14,8 @@ ParticleClusterTracking::ParticleClusterTracking()
         : in_cluster_slot_("in_cluster", "The particle cluster call")
         , out_cluster_track_slot_("out_cluster_track", "The cluster track call")
         , start_button_("start", "Start tracking")
+        , min_connection_count_(
+              "min_connection_count", "Minimum particle count for two clusters to be considered connected")
         , dot_file_name_("dot_file_name", "The file name for the .dot file") {
     // Setup the input slot
     in_cluster_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
@@ -24,6 +27,10 @@ ParticleClusterTracking::ParticleClusterTracking()
     out_cluster_track_slot_.SetCallback(datatools::table::TableDataCall::ClassName(),
         datatools::table::TableDataCall::FunctionName(1), &ParticleClusterTracking::getExtentCallback);
     MakeSlotAvailable(&out_cluster_track_slot_);
+
+    // Setup the minimum particle count
+    min_connection_count_.SetParameter(new core::param::IntParam(1, 1));
+    MakeSlotAvailable(&min_connection_count_);
 
     // Setup the dot file name
     dot_file_name_.SetParameter(new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
@@ -250,6 +257,10 @@ void ParticleClusterTracking::generateDotFile(void) {
             // Iterate over all parents of the current cluster and write the edges
             // connecting the current cluster to the previous time steps clusters
             for (auto& p : cluster.parents) {
+                // Discard clusters with too few connections
+                if (p.second < min_connection_count_.Param<core::param::IntParam>()->Value()) {
+                    continue;
+                }
                 auto parent_cluster = cluster_metadata_[t - 1][p.first];
                 dot_file << "\"" << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\"";
                 dot_file << " -> ";

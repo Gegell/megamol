@@ -78,6 +78,9 @@ private:
     /** The param slot for the manual start button */
     megamol::core::param::ParamSlot start_button_;
 
+    /** The minimal amount of particles needed to connect two clusters */
+    megamol::core::param::ParamSlot min_connection_count_;
+
     /** The file name for the .dot file */
     megamol::core::param::ParamSlot dot_file_name_;
 
