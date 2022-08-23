@@ -213,16 +213,15 @@ void ParticleClusterTracking::computeTracks(void) {
             auto acc_id = ps.GetIDAcc();
             auto acc_cluster_id = ps.GetCRAcc();
             // Keep the previous id alive for the next time step
-            particle_cluster_id_map_t particle_cluster_map;
+            cached_cluster_ids.emplace_back();
             for (size_t p_idx = 0; p_idx < parts.GetCount(); p_idx++) {
                 auto p_id = acc_id->Get_u32(p_idx);
                 auto c_id = acc_cluster_id->Get_u32(p_idx);
                 if (c_id <= 1) {
                     continue;
                 }
-                particle_cluster_map[p_id] = c_id - 2;
+                cached_cluster_ids.back()[p_id] = c_id - 2;
             }
-            cached_cluster_ids.push_back(particle_cluster_map);
         }
 
         // 5. Report some statistics
