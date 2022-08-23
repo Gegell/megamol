@@ -33,7 +33,8 @@ ParticleClusterTracking::ParticleClusterTracking()
     MakeSlotAvailable(&min_connection_count_);
 
     // Setup the dot file name
-    dot_file_name_.SetParameter(new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
+    dot_file_name_.SetParameter(
+        new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
     MakeSlotAvailable(&dot_file_name_);
 
     // Setup manual start button
@@ -236,15 +237,20 @@ void ParticleClusterTracking::computeTracks(void) {
                     parent_cluster.local_time_cluster_id, p.second);
             }
         }
+
+        // 6. Save the current cluster list, we have partial results should the process be interrupted
+        generateDotFile(true);
     }
 }
 
-void ParticleClusterTracking::generateDotFile(void) {
+bool ParticleClusterTracking::generateDotFile(bool silent) {
     auto filename = dot_file_name_.Param<core::param::FilePathParam>()->Value();
     if (filename.empty()) {
-        megamol::core::utility::log::Log::DefaultLog.WriteError(
-            "[ParticleClusterTracking] No filename specified for dot file.");
-        return;
+        if (!silent) {
+            megamol::core::utility::log::Log::DefaultLog.WriteError(
+                "[ParticleClusterTracking] No filename specified for dot file.");
+        }
+        return false;
     }
     std::ofstream dot_file(filename.generic_u8string().c_str());
     dot_file << "digraph G {" << std::endl;
@@ -270,8 +276,14 @@ void ParticleClusterTracking::generateDotFile(void) {
             // Output the current cluster as a node
             dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
             dot_file << " [label=\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << " ("
-                     << cluster.num_particles << ")\"];" << std::endl;
+                     << cluster.num_particles << ")\", __bounds=\"[" << cluster.bounding_box.Left() << ","
+                     << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
+                     << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
+                     << cluster.bounding_box.Front() << "]\", __frame=\"" << cluster.frame_id << "\", __local_id=\""
+                     << cluster.local_time_cluster_id << "\", __global_id=\"" << cluster.num_particles << "];"
+                     << std::endl;
         }
     }
     dot_file << "}" << std::endl;
+    return true;
 }

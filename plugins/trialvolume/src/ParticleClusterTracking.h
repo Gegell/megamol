@@ -67,7 +67,7 @@ private:
     void computeTracks(void);
 
     /** Generate a corresponding .dot file for the current tracks */
-    void generateDotFile(void);
+    bool generateDotFile(bool silent=false);
 
     /** The slot for the cluster track call */
     megamol::core::CalleeSlot out_cluster_track_slot_;
