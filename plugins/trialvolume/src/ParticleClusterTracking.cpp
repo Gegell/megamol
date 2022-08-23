@@ -271,7 +271,7 @@ bool ParticleClusterTracking::generateDotFile(bool silent) {
                 dot_file << "\"" << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\"";
                 dot_file << " -> ";
                 dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
-                dot_file << " [label=\"" << p.second << "\"];" << std::endl;
+                dot_file << " [label=\"" << p.second << "\", __kept=" << p.second << "];" << std::endl;
             }
             // Output the current cluster as a node
             dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
@@ -279,9 +279,9 @@ bool ParticleClusterTracking::generateDotFile(bool silent) {
                      << cluster.num_particles << ")\", __bounds=\"[" << cluster.bounding_box.Left() << ","
                      << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
                      << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
-                     << cluster.bounding_box.Front() << "]\", __frame=\"" << cluster.frame_id << "\", __local_id=\""
-                     << cluster.local_time_cluster_id << "\", __global_id=\"" << cluster.num_particles << "];"
-                     << std::endl;
+                     << cluster.bounding_box.Front() << "]\", __frame=" << cluster.frame_id
+                     << ", __local_id=" << cluster.local_time_cluster_id << ", __global_id=" << cluster.num_particles
+                     << "];" << std::endl;
         }
     }
     dot_file << "}" << std::endl;
