@@ -193,10 +193,11 @@ void ParticleClusterTracking::computeTracks(void) {
                 // 3.3. Mark the cluster as connected to the previous time step
                 if (cached_cluster_ids.size() > 0) {
                     // TODO check if particle list size stays the same size between frames
-                    auto map = cached_cluster_ids[pl_idx];
-                    auto p_id = acc_particle_id->Get_u32(p_idx);
-                    if (map.find(p_id) != map.end()) {
-                        auto prev_cluster_id = map[p_id];
+                    auto const & map = cached_cluster_ids[pl_idx];
+                    auto const p_id = acc_particle_id->Get_u32(p_idx);
+                    auto const matched_id = map.find(p_id);
+                    if (matched_id != map.end()) {
+                        auto prev_cluster_id = matched_id->second;
                         cluster.parents[prev_cluster_id]++;
                     }
                 }
