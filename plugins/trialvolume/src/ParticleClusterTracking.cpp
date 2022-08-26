@@ -16,6 +16,9 @@ ParticleClusterTracking::ParticleClusterTracking()
         , start_button_("start", "Start tracking")
         , min_connection_count_(
               "min_connection_count", "Minimum particle count for two clusters to be considered connected")
+        , frame_start_param_("frame::start", "The first frame to track")
+        , frame_end_param_("frame::end", "The last frame to track")
+        , frame_step_param_("frame::step", "The step size for the frame range")
         , dot_file_name_("dot_file_name", "The file name for the .dot file") {
     // Setup the input slot
     in_cluster_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
@@ -31,6 +34,14 @@ ParticleClusterTracking::ParticleClusterTracking()
     // Setup the minimum particle count
     min_connection_count_.SetParameter(new core::param::IntParam(1, 1));
     MakeSlotAvailable(&min_connection_count_);
+
+    // Setup the frame range
+    frame_start_param_.SetParameter(new core::param::IntParam(0, 0));
+    frame_end_param_.SetParameter(new core::param::IntParam(0, 0));
+    frame_step_param_.SetParameter(new core::param::IntParam(1, 1));
+    MakeSlotAvailable(&frame_start_param_);
+    MakeSlotAvailable(&frame_end_param_);
+    MakeSlotAvailable(&frame_step_param_);
 
     // Setup the dot file name
     dot_file_name_.SetParameter(
@@ -81,7 +92,13 @@ void ParticleClusterTracking::computeTracks(void) {
 
     // Before we do anything we need to call the input cluster call once to
     // get the needed metadata like frame count set as well.
-    in_cluster_call->SetFrameID(0, true);
+
+    // Start with the first frame as given by the frame range parameter
+    unsigned int frame_start = frame_start_param_.Param<core::param::IntParam>()->Value();
+    unsigned int frame_end = frame_end_param_.Param<core::param::IntParam>()->Value();
+    unsigned int frame_step = frame_step_param_.Param<core::param::IntParam>()->Value();
+
+    in_cluster_call->SetFrameID(frame_start, true);
     if (!(*in_cluster_call)(1)) {
         megamol::core::utility::log::Log::DefaultLog.WriteError(
             "[ParticleClusterTracking] Failed to get extents for frame 0");
@@ -89,6 +106,7 @@ void ParticleClusterTracking::computeTracks(void) {
         // frames we have to iterate over.
         return;
     }
+    frame_end = std::min(frame_end, in_cluster_call->FrameCount() - 1);
 
     // First reset the current tracks
     cluster_metadata_.clear();
@@ -98,7 +116,7 @@ void ParticleClusterTracking::computeTracks(void) {
     std::vector<particle_cluster_id_map_t> cached_cluster_ids;
 
     // Iterate over every time step t
-    for (size_t t = 0; t < in_cluster_call->FrameCount(); t++) {
+    for (size_t t = frame_start; t <= frame_end; t += frame_step) {
         // Get the current cluster call
         in_cluster_call->SetFrameID(t);
         bool found_frame_data = true;
@@ -193,7 +211,7 @@ void ParticleClusterTracking::computeTracks(void) {
                 // 3.3. Mark the cluster as connected to the previous time step
                 if (cached_cluster_ids.size() > 0) {
                     // TODO check if particle list size stays the same size between frames
-                    auto const & map = cached_cluster_ids[pl_idx];
+                    auto const& map = cached_cluster_ids[pl_idx];
                     auto const p_id = acc_particle_id->Get_u32(p_idx);
                     auto const matched_id = map.find(p_id);
                     if (matched_id != map.end()) {

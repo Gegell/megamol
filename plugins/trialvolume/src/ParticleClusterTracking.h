@@ -81,6 +81,11 @@ private:
     /** The minimal amount of particles needed to connect two clusters */
     megamol::core::param::ParamSlot min_connection_count_;
 
+    /** The frame range and step size for the cluster track call */
+    megamol::core::param::ParamSlot frame_start_param_;
+    megamol::core::param::ParamSlot frame_end_param_;
+    megamol::core::param::ParamSlot frame_step_param_;
+
     /** The file name for the .dot file */
     megamol::core::param::ParamSlot dot_file_name_;
 
