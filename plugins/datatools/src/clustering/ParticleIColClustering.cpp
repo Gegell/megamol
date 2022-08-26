@@ -44,6 +44,9 @@ bool megamol::datatools::clustering::ParticleIColClustering::manipulateData(
         _kd_trees.resize(pl_count);
         _ret_cols.resize(pl_count);
 
+        // TODO This debug timing output should probably not end up on the main branch.
+        auto start = std::chrono::high_resolution_clock::now();
+
         for (std::remove_const_t<decltype(pl_count)> pl_idx = 0; pl_idx < pl_count; ++pl_idx) {
             auto& parts = outData.AccessParticles(pl_idx);
 
@@ -100,6 +103,9 @@ bool megamol::datatools::clustering::ParticleIColClustering::manipulateData(
             core::utility::log::Log::DefaultLog.WriteInfo(
                 "[ParticleIColClustering]: Min idx %f; Max idx %f", *minmax.first, *minmax.second);
         }
+
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now() - start);
+        core::utility::log::Log::DefaultLog.WriteInfo("[ParticleIColClustering]: Clustering took %d seconds", duration.count());
 
         _frame_id = inData.FrameID();
         _in_data_hash = inData.DataHash();
