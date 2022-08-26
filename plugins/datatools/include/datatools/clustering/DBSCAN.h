@@ -3,6 +3,8 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <unordered_set>
+#include <set>
 
 #include "vislib/sys/ConsoleProgressBar.h"
 
@@ -37,16 +39,27 @@ inline void expand_cluster(std::shared_ptr<kd_tree_t<T, DIM>> const& D, index_t 
 
     clusters[P] = C;
 
+    std::set<index_t> to_check;
+    for (std::pair<index_t, T>& n : Nvec) {
+        to_check.insert(n.first);
+    }
+
     search_res_t<T> tmp_res(minPts);
 
-    for (typename search_res_t<T>::size_type vec_idx = 0; vec_idx < Nvec.size(); ++vec_idx) {
-        auto const idx = Nvec[vec_idx].first;
+    while(!to_check.empty()) {
+        // Pop the first element from the set
+        auto const idx = *to_check.begin();
+        to_check.erase(to_check.begin());
         if (visited[idx] == 0) {
             visited[idx] = 1;
             auto query = data.get_position(idx);
             auto const N = D->radiusSearch(query, eps, tmp_res, params);
             if (N >= minPts) {
-                Nvec.insert(Nvec.cend(), tmp_res.cbegin(), tmp_res.cend());
+                for (auto const& res : tmp_res) {
+                    if (visited[res.first] == 0) {
+                        to_check.insert(res.first);
+                    }
+                }
             }
         }
         if (clusters[idx] <= static_cast<cluster_type_ut>(cluster_type::NOISE)) {
@@ -93,10 +106,17 @@ inline void expand_cluster_with_similarity(std::shared_ptr<kd_tree_t<T, DIM>> co
 
     clusters[P] = C;
 
+    std::unordered_set<index_t> to_check;
+    for (auto const& n : Nvec) {
+        to_check.insert(n.first);
+    }
+
     search_res_t<T> tmp_res(minPts);
 
-    for (typename search_res_t<T>::size_type vec_idx = 0; vec_idx < Nvec.size(); ++vec_idx) {
-        auto const idx = Nvec[vec_idx].first;
+    while(!to_check.empty()) {
+        // Pop the first element from the set
+        auto const idx = *to_check.begin();
+        to_check.erase(to_check.begin());
         if (visited[idx] == 0) {
             visited[idx] = 1;
             auto query = data.get_position(idx);
@@ -104,7 +124,11 @@ inline void expand_cluster_with_similarity(std::shared_ptr<kd_tree_t<T, DIM>> co
             N = std::count_if(tmp_res.cbegin(), tmp_res.cend(),
                 [idx, &similarity](auto const& el) { return similarity(idx, el.first); });
             if (N >= minPts) {
-                Nvec.insert(Nvec.cend(), tmp_res.cbegin(), tmp_res.cend());
+                for (auto const& res : tmp_res) {
+                    if (visited[res.first] == 0 && to_check.find(res.first) == to_check.end()) {
+                        to_check.insert(res.first);
+                    }
+                }
             }
         }
         if (clusters[idx] <= static_cast<cluster_type_ut>(cluster_type::NOISE)) {
@@ -158,14 +182,21 @@ inline void expand_cluster_with_similarity_and_score(std::shared_ptr<kd_tree_t<T
     clusters[P] = C;
     cluster_identity[C].push_back(P);
 
+    std::unordered_set<index_t> to_check;
+    for (auto const& n : Nvec) {
+        to_check.insert(n.first);
+    }
+
     search_res_t<T> tmp_res(minPts);
 
     index_t pivot = P;
     T pivot_score = P_score;
     index_t pivot_size = 1;
 
-    for (typename search_res_t<T>::size_type vec_idx = 0; vec_idx < Nvec.size(); ++vec_idx) {
-        auto const idx = Nvec[vec_idx].first;
+    while(!to_check.empty()) {
+        // Pop the first element from the set
+        auto const idx = *to_check.begin();
+        to_check.erase(to_check.begin());
         if (visited[idx] == 0) {
             visited[idx] = 1;
             auto query = data.get_position(idx);
@@ -177,7 +208,11 @@ inline void expand_cluster_with_similarity_and_score(std::shared_ptr<kd_tree_t<T
             N = tmp_res.size();
             // core::utility::log::Log::DefaultLog.WriteInfo("Size of Neighborhood %d was %d", N, old_N);
             if (N >= minPts) {
-                Nvec.insert(Nvec.cend(), tmp_res.cbegin(), tmp_res.cend());
+                for (auto const& res : tmp_res) {
+                    if (visited[res.first] == 0 && to_check.find(res.first) == to_check.end()) {
+                        to_check.insert(res.first);
+                    }
+                }
                 // adapt pivot
                 /*std::vector<std::pair<index_t, T>> scores(tmp_res.size());
                 std::transform(tmp_res.cbegin(), tmp_res.cend(), scores.begin(), [&score, pivot_score, pivot_size,
