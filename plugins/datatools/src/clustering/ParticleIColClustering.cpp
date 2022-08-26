@@ -55,6 +55,10 @@ bool megamol::datatools::clustering::ParticleIColClustering::manipulateData(
 
             auto const p_count = parts.GetCount();
 
+            if (p_count == 0) {
+                continue;
+            }
+
             if (_frame_id != inData.FrameID() || _in_data_hash != inData.DataHash()) {
                 // rebuild search structure
 
