@@ -2,13 +2,14 @@
 
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/IntParam.h"
-
+#include "mmcore/param/BoolParam.h"
 
 megamol::datatools::clustering::ParticleIColClustering::ParticleIColClustering()
         : AbstractParticleManipulator("outData", "inData")
         , _eps_slot("eps", "")
         , _minpts_slot("minpts", "")
-        , _icol_weight("icol weight", "") {
+        , _icol_weight("icol weight", "")
+        , _normalize_pos_slot("normalize pos", "") {
     _eps_slot << new core::param::FloatParam(0.1f, 0.0f, 1.0f);
     MakeSlotAvailable(&_eps_slot);
 
@@ -17,6 +18,9 @@ megamol::datatools::clustering::ParticleIColClustering::ParticleIColClustering()
 
     _icol_weight << new core::param::FloatParam(0.5f, 0.0f, 1.0f);
     MakeSlotAvailable(&_icol_weight);
+
+    _normalize_pos_slot << new core::param::BoolParam(true);
+    MakeSlotAvailable(&_normalize_pos_slot);
 }
 
 
@@ -79,6 +83,11 @@ bool megamol::datatools::clustering::ParticleIColClustering::manipulateData(
                 std::array<float, 8> bbox = {p_bbox.GetLeft(), p_bbox.GetRight(), p_bbox.GetBottom(), p_bbox.GetTop(),
                     p_bbox.GetBack(), p_bbox.GetFront(), parts.GetMinColourIndexValue(),
                     parts.GetMaxColourIndexValue()};
+
+                if (!_normalize_pos_slot.Param<core::param::BoolParam>()->Value()) {
+                    bbox[0] = bbox[2] = bbox[4] = 0.0f;
+                    bbox[1] = bbox[3] = bbox[5] = 1.0f;
+                }
 
                 _points[pl_idx] = std::make_shared<genericPointcloud<float, 4>>(cur_points, bbox, weights);
                 _points[pl_idx]->normalize_data();

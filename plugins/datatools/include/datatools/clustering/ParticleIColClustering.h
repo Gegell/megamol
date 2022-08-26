@@ -45,6 +45,8 @@ private:
 
     core::param::ParamSlot _icol_weight;
 
+    core::param::ParamSlot _normalize_pos_slot;
+
     std::vector<std::shared_ptr<genericPointcloud<float, 4>>> _points;
 
     std::vector<std::shared_ptr<kd_tree_t<float, 4>>> _kd_trees;
