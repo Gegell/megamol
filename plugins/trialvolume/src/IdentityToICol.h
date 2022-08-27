@@ -41,7 +41,9 @@ protected:
     virtual bool manipulateData(geocalls::MultiParticleDataCall& outData, geocalls::MultiParticleDataCall& inData);
 
 private:
-    std::vector<float> intensities;
+    std::vector<float> intensities_;
+
+    size_t last_hash_;
 };
 
 } /* end namespace megamol::trialvolume */
