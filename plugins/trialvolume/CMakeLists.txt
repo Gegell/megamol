@@ -9,14 +9,16 @@ megamol_plugin(trailvolume
     geometry_calls
     mesh
     mmstd
-    # plugin2
-  DEPENDS_EXTERNALS
-    voro++
-    Eigen
-    # external2
   )
 
 if (trailvolume_PLUGIN_ENABLED)
   # Do additional plugin specific stuff, not covered by the generic plugin creation,
   # i.e. find_package() dependencies, additional sources 'target_sources(megamolplugin PRIVATE ...)', ....
+  find_package(voro CONFIG REQUIRED)
+  find_package(Eigen3 CONFIG REQUIRED)
+
+  target_link_libraries(trailvolume
+    PRIVATE
+      VORO::voro++
+      Eigen3::Eigen)
 endif ()

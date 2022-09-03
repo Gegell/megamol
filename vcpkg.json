@@ -48,6 +48,7 @@
     "tinyobjloader",
     "tinyply",
     "vtk-m",
+    "voro",
     "zeromq",
     "zfp",
     "zlib"
