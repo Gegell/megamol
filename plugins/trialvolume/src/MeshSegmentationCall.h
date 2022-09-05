@@ -2,7 +2,7 @@
 
 #include "MeshSegmentation.h"
 
-#include "mmcore/AbstractGetDataCall.h"
+#include "mmstd/data/AbstractGetDataCall.h"
 
 namespace megamol::trialvolume {
 
