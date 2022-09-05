@@ -5,12 +5,14 @@
  */
 
 #include "DualContouring.h"
+#include "ParticleClusterTracking.h"
 #include "ParticleToVolume.h"
 #include "VtrFileReader.h"
 #include "VolumeSegmentation.h"
 #include "MeshSegmentationCall.h"
 #include "MeshSegmentation.h"
 #include "SegmentationAnalysis.h"
+#include "IdentityToICol.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"
@@ -36,6 +38,8 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleToVolume>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VtrFileReader>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::DualContouring>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::ParticleClusterTracking>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::IdentityToICol>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeSegmentation>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentation>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::SegmentationAnalysis>();
