@@ -252,6 +252,9 @@ void ParticleClusterTracking::computeTracks(void) {
         }
 
         // 5. Report some statistics
+        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[ParticleClusterTracking] Frame %d/%d has %d clusters.",
+            (t - frame_start) / frame_step, (frame_end - frame_start + 1) / frame_step, current_cluster_list.size());
+#ifdef TRIALVOLUME_VERBOSE
         for (auto& cluster : current_cluster_list) {
             megamol::core::utility::log::Log::DefaultLog.WriteInfo(
                 "[ParticleClusterTracking] Cluster (%d,%d) has %d parents, with %d particles.", cluster.frame_id,
@@ -264,6 +267,7 @@ void ParticleClusterTracking::computeTracks(void) {
                     parent_cluster.local_time_cluster_id, p.second);
             }
         }
+#endif
 
         // 6. Save the current cluster list, we have partial results should the process be interrupted
         generateDotFile(true);
