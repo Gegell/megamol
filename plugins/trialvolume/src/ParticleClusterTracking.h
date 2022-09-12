@@ -85,6 +85,7 @@ private:
     megamol::core::param::ParamSlot frame_start_param_;
     megamol::core::param::ParamSlot frame_end_param_;
     megamol::core::param::ParamSlot frame_step_param_;
+    megamol::core::param::ParamSlot frame_range_limit_param_;
 
     /** The file name for the .dot file */
     megamol::core::param::ParamSlot dot_file_name_;
