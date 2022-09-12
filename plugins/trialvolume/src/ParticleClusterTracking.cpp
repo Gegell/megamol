@@ -298,7 +298,7 @@ bool ParticleClusterTracking::generateDotFile(bool silent) {
                      << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
                      << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
                      << cluster.bounding_box.Front() << "]\", __frame=" << cluster.frame_id
-                     << ", __local_id=" << cluster.local_time_cluster_id << ", __global_id=" << cluster.num_particles
+                     << ", __local_id=" << cluster.local_time_cluster_id << ", __particles=" << cluster.num_particles
                      << "];" << std::endl;
         }
     }
