@@ -87,9 +87,13 @@ bool megamol::datatools::clustering::ParticleIColClustering::manipulateData(
                     p_bbox.GetBack(), p_bbox.GetFront(), parts.GetMinColourIndexValue(),
                     parts.GetMaxColourIndexValue()};
 
+                // TODO rename this switch to a more fitting name
                 if (!_normalize_pos_slot.Param<core::param::BoolParam>()->Value()) {
-                    bbox[0] = bbox[2] = bbox[4] = 0.0f;
-                    bbox[1] = bbox[3] = bbox[5] = 1.0f;
+                    float min_dim = std::max({p_bbox.GetLeft(), p_bbox.GetBottom(), p_bbox.GetBack()});
+                    float max_dim = std::min({p_bbox.GetRight(), p_bbox.GetTop(), p_bbox.GetFront()});
+
+                    bbox[0] = bbox[2] = bbox[4] = min_dim;
+                    bbox[1] = bbox[3] = bbox[5] = max_dim;
                 }
 
                 _points[pl_idx] = std::make_shared<genericPointcloud<float, 4>>(cur_points, bbox, weights);
