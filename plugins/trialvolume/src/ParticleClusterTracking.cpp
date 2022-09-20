@@ -208,10 +208,9 @@ void ParticleClusterTracking::computeTracks(void) {
                 auto& cluster = current_cluster_list[c_id];
 
                 // 3.2. Expand the cluster bounding box to include the particle
-                if (cluster.bounding_box.IsEmpty()) {
+                if (cluster.num_particles == 0) {
                     cluster.bounding_box.Set(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx),
                         acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
-                    cluster.bounding_box.Grow(1e-4f);
                 } else {
                     cluster.bounding_box.GrowToPoint(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
                 }
