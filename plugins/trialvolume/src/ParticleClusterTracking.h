@@ -9,6 +9,7 @@
 #include "mmcore/Module.h"
 #include "mmcore/param/ParamSlot.h"
 #include "vislib/math/Cuboid.h"
+#include "vislib/math/Vector.h"
 
 namespace megamol::trialvolume {
 
@@ -24,6 +25,8 @@ public:
         unsigned int num_particles;
 
         vislib::math::Cuboid<float> bounding_box;
+        vislib::math::Vector<float, 3> center_of_mass;
+        vislib::math::Vector<float, 3> velocity;
     };
 
     /** Answer the name of the objects of this description. */

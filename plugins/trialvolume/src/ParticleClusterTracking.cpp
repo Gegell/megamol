@@ -2,10 +2,10 @@
 
 #include "datatools/table/TableDataCall.h"
 #include "geometry_calls/MultiParticleDataCall.h"
+#include "mmcore/param/BoolParam.h"
 #include "mmcore/param/ButtonParam.h"
 #include "mmcore/param/FilePathParam.h"
 #include "mmcore/param/IntParam.h"
-#include "mmcore/param/BoolParam.h"
 
 #include <fstream>
 
@@ -199,6 +199,10 @@ void ParticleClusterTracking::computeTracks(void) {
             auto acc_x = ps.GetXAcc();
             auto acc_y = ps.GetYAcc();
             auto acc_z = ps.GetZAcc();
+
+            auto acc_dx = ps.GetDXAcc();
+            auto acc_dy = ps.GetDYAcc();
+            auto acc_dz = ps.GetDZAcc();
             for (size_t p_idx = 0; p_idx < parts.GetCount(); p_idx++) {
                 auto c_id = acc_cluster_id->Get_u32(p_idx);
                 if (c_id <= 1) {
@@ -216,7 +220,13 @@ void ParticleClusterTracking::computeTracks(void) {
                 }
                 cluster.num_particles++;
 
-                // 3.3. Mark the cluster as connected to the previous time step
+                // 3.3. Add the particle position and velocity to the cluster center of mass and velocity
+                cluster.center_of_mass +=
+                    vislib::math::Vector<float, 3>(acc_x->Get_f(p_idx), acc_y->Get_f(p_idx), acc_z->Get_f(p_idx));
+                cluster.velocity +=
+                    vislib::math::Vector<float, 3>(acc_dx->Get_f(p_idx), acc_dy->Get_f(p_idx), acc_dz->Get_f(p_idx));
+
+                // 3.4. Mark the cluster as connected to the previous time step
                 if (cached_cluster_ids.size() > 0) {
                     // TODO check if particle list size stays the same size between frames
                     auto const& map = cached_cluster_ids[pl_idx];
@@ -230,7 +240,13 @@ void ParticleClusterTracking::computeTracks(void) {
             }
         }
 
-        // 4. Store the previous id accessor for the next time step
+        // 4. Normalize the center of mass and velocity
+        for (auto& cluster : current_cluster_list) {
+            cluster.center_of_mass /= static_cast<float>(cluster.num_particles);
+            cluster.velocity /= static_cast<float>(cluster.num_particles);
+        }
+
+        // 5. Store the previous id accessor for the next time step
         cached_cluster_ids.clear();
         for (size_t pl_idx = 0; pl_idx < in_cluster_call->GetParticleListCount(); pl_idx++) {
             auto& parts = in_cluster_call->AccessParticles(pl_idx);
@@ -250,7 +266,7 @@ void ParticleClusterTracking::computeTracks(void) {
             }
         }
 
-        // 5. Report some statistics
+        // 6. Report some statistics
         megamol::core::utility::log::Log::DefaultLog.WriteInfo("[ParticleClusterTracking] Frame %d/%d has %d clusters.",
             (t - frame_start) / frame_step, (frame_end - frame_start + 1) / frame_step, current_cluster_list.size());
 #ifdef TRIALVOLUME_VERBOSE
@@ -268,7 +284,7 @@ void ParticleClusterTracking::computeTracks(void) {
         }
 #endif
 
-        // 6. Save the current cluster list, we have partial results should the process be interrupted
+        // 7. Save the current cluster list, we have partial results should the process be interrupted
         generateDotFile(true);
     }
 }
@@ -309,9 +325,13 @@ bool ParticleClusterTracking::generateDotFile(bool silent) {
                      << cluster.num_particles << ")\", __bounds=\"[" << cluster.bounding_box.Left() << ","
                      << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
                      << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
-                     << cluster.bounding_box.Front() << "]\", __frame=" << cluster.frame_id
-                     << ", __local_id=" << cluster.local_time_cluster_id << ", __particles=" << cluster.num_particles
-                     << "];" << std::endl;
+                     << cluster.bounding_box.Front() << "]\""
+                     << ", __center_of_mass=\"[" << cluster.center_of_mass.X() << "," << cluster.center_of_mass.Y()
+                     << "," << cluster.center_of_mass.Z() << "]\""
+                     << ", __velocity=\"[" << cluster.velocity.X() << "," << cluster.velocity.Y() << ","
+                     << cluster.velocity.Z() << "]\""
+                     << ", __frame=" << cluster.frame_id << ", __local_id=" << cluster.local_time_cluster_id
+                     << ", __particles=" << cluster.num_particles << "];" << std::endl;
         }
     }
     dot_file << "}" << std::endl;
