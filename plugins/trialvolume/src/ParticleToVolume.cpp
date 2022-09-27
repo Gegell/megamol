@@ -244,7 +244,7 @@ bool trialvolume::ParticleToVolume::assertData(geocalls::VolumetricDataCall& cal
     metadata_velocity_ = temp_meta.Clone();
     metadata_velocity_.Components = 3;
     metadata_velocity_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
-    metadata_velocity_.ScalarLength = sizeof(float) * 3;
+    metadata_velocity_.ScalarLength = sizeof(float);
     metadata_velocity_.MinValues = new double[3];
     std::copy(min_velocity_.begin(), min_velocity_.end(), metadata_velocity_.MinValues);
     metadata_velocity_.MaxValues = new double[3];
