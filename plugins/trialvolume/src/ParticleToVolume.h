@@ -108,6 +108,14 @@ private:
     bool getDataCallback(core::Call& caller);
 
     /**
+     * Gets the velocity of the source.
+     *
+     * @param caller The calling call.
+     * @return 'true' on success, 'false' on failure.
+     */
+    bool getVelocityCallback(core::Call& caller);
+
+    /**
      * Gets the data extents from the source.
      *
      * TUTORIAL: This method computes the extents of the data set, namely the bounding box and other relevant values,
@@ -119,6 +127,8 @@ private:
     bool getExtentCallback(core::Call& caller);
 
     bool dummyCallback(core::Call& caller);
+
+    bool assertData(geocalls::VolumetricDataCall &caller);
 
     bool createVolume(geocalls::MultiParticleDataCall* caller);
 
@@ -176,7 +186,10 @@ private:
     core::param::ParamSlot voxel_size_slot_;
 
     /** The slot for requesting data */
-    core::CalleeSlot out_data_slot_;
+    core::CalleeSlot out_density_slot_;
+
+    /** The slot for the velocity volume data output */
+    core::CalleeSlot out_velocity_slot_;
 
     /** The slot accessing the original particle data */
     core::CallerSlot in_particle_data_slot_;
@@ -187,14 +200,23 @@ private:
     /** The last hash of the particle data */
     std::size_t in_data_hash_;
 
-    /** The volume data */
-    std::vector<float> volume_;
+    /** The volume density data */
+    std::vector<float> density_;
+
+    /** The volume velocity data */
+    std::vector<float> velocity_;
 
     /** The minimum value of the volume */
     float min_value_ = 0.0f;
 
     /** The maximum value of the volume */
     float max_value_ = 0.0f;
+
+    /** The mimimum velocities of the volume */
+    std::array<float, 3> min_velocity_ = {0.0f, 0.0f, 0.0f};
+
+    /** The maximum velocities of the volume */
+    std::array<float, 3> max_velocity_ = {0.0f, 0.0f, 0.0f};
 
     /** The number of voxels in the x direction */
     size_t x_cells_;
@@ -205,8 +227,11 @@ private:
     /** The number of voxels in the z direction */
     size_t z_cells_;
 
-    /** The volume metadata */
-    megamol::geocalls::VolumetricDataCall::Metadata metadata_;
+    /** The volume density metadata */
+    megamol::geocalls::VolumetricDataCall::Metadata metadata_density_;
+
+    /** The volume velocity metadata */
+    megamol::geocalls::VolumetricDataCall::Metadata metadata_velocity_;
 
     /** Last time the data was updated */
     unsigned int time_ = 0;

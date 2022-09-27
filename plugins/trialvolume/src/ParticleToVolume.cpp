@@ -26,28 +26,51 @@ trialvolume::ParticleToVolume::ParticleToVolume(void)
         , kernel_metric_slot_("kernelMetric", "Kernel metric")
         , kernel_radius_slot_("kernelRadius", "Kernel radius")
         , kernel_boundary_slot_("kernelBoundary", "Kernel boundary handling")
-        , out_data_slot_("outData", "Provides splatted particle volume")
+        , out_density_slot_("outData", "Provides splatted particle volume")
+        , out_velocity_slot_("outVelocity", "Provides splatted particle velocity volume")
         , in_particle_data_slot_("inParticleData", "Takes the particle data") {
     // Setup volumetric data output slot
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_DATA),
         &ParticleToVolume::getDataCallback);
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_EXTENTS),
         &ParticleToVolume::getExtentCallback);
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_METADATA),
         &ParticleToVolume::getExtentCallback);
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_START_ASYNC),
         &ParticleToVolume::dummyCallback);
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_STOP_ASYNC),
         &ParticleToVolume::dummyCallback);
-    out_data_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+    out_density_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
         geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_TRY_GET_DATA),
         &ParticleToVolume::dummyCallback);
-    MakeSlotAvailable(&out_data_slot_);
+    MakeSlotAvailable(&out_density_slot_);
+
+    // Setup velocity data output slot
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_DATA),
+        &ParticleToVolume::getVelocityCallback);
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_EXTENTS),
+        &ParticleToVolume::getExtentCallback);
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_GET_METADATA),
+        &ParticleToVolume::getExtentCallback);
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_START_ASYNC),
+        &ParticleToVolume::dummyCallback);
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_STOP_ASYNC),
+        &ParticleToVolume::dummyCallback);
+    out_velocity_slot_.SetCallback(geocalls::VolumetricDataCall::ClassName(),
+        geocalls::VolumetricDataCall::FunctionName(geocalls::VolumetricDataCall::IDX_TRY_GET_DATA),
+        &ParticleToVolume::dummyCallback);
+    MakeSlotAvailable(&out_velocity_slot_);
+
 
     // Setup particle data input slot
     in_particle_data_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
@@ -103,86 +126,131 @@ bool trialvolume::ParticleToVolume::dummyCallback(core::Call& caller) {
 }
 
 bool trialvolume::ParticleToVolume::getDataCallback(core::Call& caller) {
+    auto* outVolumetricDataCall = dynamic_cast<geocalls::VolumetricDataCall*>(&caller);
+
+    if (outVolumetricDataCall == nullptr) {
+        return false;
+    }
+
+    if (!assertData(*outVolumetricDataCall)) {
+        return false;
+    }
+
+    outVolumetricDataCall->SetMetadata(&metadata_density_);
+
+    // Set the data
+    outVolumetricDataCall->SetFrameID(time_);
+    outVolumetricDataCall->SetData(density_.data());
+    outVolumetricDataCall->SetDataHash(data_hash_ * 2 + 0);
+
+    return true;
+}
+
+bool trialvolume::ParticleToVolume::getVelocityCallback(core::Call& caller) {
+    auto* outVolumetricDataCall = dynamic_cast<geocalls::VolumetricDataCall*>(&caller);
+
+    if (outVolumetricDataCall == nullptr) {
+        return false;
+    }
+
+    if (!assertData(*outVolumetricDataCall)) {
+        return false;
+    }
+
+    outVolumetricDataCall->SetMetadata(&metadata_velocity_);
+
+    // Set the data
+    outVolumetricDataCall->SetFrameID(time_);
+    outVolumetricDataCall->SetData(velocity_.data());
+    outVolumetricDataCall->SetDataHash(data_hash_ * 2 + 1);
+
+    return true;
+}
+
+bool trialvolume::ParticleToVolume::assertData(geocalls::VolumetricDataCall& caller) {
     auto* inMultiParticleDataCall = in_particle_data_slot_.CallAs<geocalls::MultiParticleDataCall>();
     if (inMultiParticleDataCall == nullptr) {
         return false;
     }
 
-    auto* outVolumetricDataCall = dynamic_cast<geocalls::VolumetricDataCall*>(&caller);
-    if (outVolumetricDataCall != nullptr) {
-#if 1
-        // Update until current frame is reached? Copy pasted from ParticlesToDenisty.cpp
-        auto frameID = outVolumetricDataCall != nullptr ? outVolumetricDataCall->FrameID() : 0;
-        do {
-            inMultiParticleDataCall->SetFrameID(frameID, true);
-            if (!(*inMultiParticleDataCall)(1)) {
-                megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Unable to get extents.");
-                return false;
-            }
-            if (!(*inMultiParticleDataCall)(0)) {
-                megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Unable to get data.");
-                return false;
-            }
-        } while (inMultiParticleDataCall->FrameID() != frameID);
-#endif
-        // Only update if hash is different / parameters changed
-        if (time_ != inMultiParticleDataCall->FrameID() || inMultiParticleDataCall->DataHash() != in_data_hash_ ||
-            anythingDirty()) {
-            if (!createVolume(inMultiParticleDataCall)) {
-                return false;
-            }
-            in_data_hash_ = inMultiParticleDataCall->DataHash();
-            data_hash_++;
-            time_ = inMultiParticleDataCall->FrameID();
-            resetDirtyFlags();
+    // Update until current frame is reached? Copy pasted from ParticlesToDenisty.cpp
+    auto frameID = caller.FrameID();
+    do {
+        inMultiParticleDataCall->SetFrameID(frameID, true);
+        if (!(*inMultiParticleDataCall)(1)) {
+            megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Unable to get extents.");
+            return false;
         }
-        // Figure out the volume metadata
-        auto bbox = inMultiParticleDataCall->AccessBoundingBoxes().ObjectSpaceBBox();
-
-        metadata_.Components = 1;
-        metadata_.GridType = geocalls::GridType_t::CARTESIAN;
-        metadata_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
-        metadata_.ScalarLength = sizeof(float);
-
-        metadata_.NumberOfFrames = 1;
-
-        metadata_.MinValues = new double[1];
-        metadata_.MinValues[0] = min_value_;
-        metadata_.MaxValues = new double[1];
-        metadata_.MaxValues[0] = max_value_;
-
-        auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
-
-        metadata_.Extents[0] = bbox.Width();
-        metadata_.Extents[1] = bbox.Height();
-        metadata_.Extents[2] = bbox.Depth();
-
-        metadata_.Origin[0] = bbox.Left();
-        metadata_.Origin[1] = bbox.Bottom();
-        metadata_.Origin[2] = bbox.Back();
-
-        metadata_.Resolution[0] = static_cast<size_t>(std::ceil(metadata_.Extents[0] / voxelSideLength));
-        metadata_.Resolution[1] = static_cast<size_t>(std::ceil(metadata_.Extents[1] / voxelSideLength));
-        metadata_.Resolution[2] = static_cast<size_t>(std::ceil(metadata_.Extents[2] / voxelSideLength));
-
-        metadata_.SliceDists[0] = new float[0];
-        metadata_.SliceDists[0][0] = metadata_.Extents[0] / static_cast<float>(metadata_.Resolution[0] - 1);
-        metadata_.SliceDists[1] = new float[0];
-        metadata_.SliceDists[1][0] = metadata_.Extents[1] / static_cast<float>(metadata_.Resolution[1] - 1);
-        metadata_.SliceDists[2] = new float[0];
-        metadata_.SliceDists[2][0] = metadata_.Extents[2] / static_cast<float>(metadata_.Resolution[2] - 1);
-
-        metadata_.IsUniform[0] = true;
-        metadata_.IsUniform[1] = true;
-        metadata_.IsUniform[2] = true;
-
-        outVolumetricDataCall->SetMetadata(&metadata_);
-
-        // Set the data
-        outVolumetricDataCall->SetFrameID(time_);
-        outVolumetricDataCall->SetData(volume_.data());
-        outVolumetricDataCall->SetDataHash(data_hash_);
+        if (!(*inMultiParticleDataCall)(0)) {
+            megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: Unable to get data.");
+            return false;
+        }
+    } while (inMultiParticleDataCall->FrameID() != frameID);
+    // Only update if hash is different / parameters changed
+    if (time_ != inMultiParticleDataCall->FrameID() || inMultiParticleDataCall->DataHash() != in_data_hash_ ||
+        anythingDirty()) {
+        if (!createVolume(inMultiParticleDataCall)) {
+            return false;
+        }
+        in_data_hash_ = inMultiParticleDataCall->DataHash();
+        data_hash_++;
+        time_ = inMultiParticleDataCall->FrameID();
+        resetDirtyFlags();
     }
+    // Figure out the volume metadata
+    auto bbox = inMultiParticleDataCall->AccessBoundingBoxes().ObjectSpaceBBox();
+
+    geocalls::VolumetricDataCall::Metadata temp_meta;
+
+    temp_meta.GridType = geocalls::GridType_t::CARTESIAN;
+    temp_meta.NumberOfFrames = 1;
+    temp_meta.Components = 0;
+    temp_meta.ScalarLength = 0;
+
+    auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
+
+    temp_meta.Extents[0] = bbox.Width();
+    temp_meta.Extents[1] = bbox.Height();
+    temp_meta.Extents[2] = bbox.Depth();
+
+    temp_meta.Origin[0] = bbox.Left();
+    temp_meta.Origin[1] = bbox.Bottom();
+    temp_meta.Origin[2] = bbox.Back();
+
+    temp_meta.Resolution[0] = static_cast<size_t>(std::ceil(temp_meta.Extents[0] / voxelSideLength));
+    temp_meta.Resolution[1] = static_cast<size_t>(std::ceil(temp_meta.Extents[1] / voxelSideLength));
+    temp_meta.Resolution[2] = static_cast<size_t>(std::ceil(temp_meta.Extents[2] / voxelSideLength));
+
+    temp_meta.SliceDists[0] = new float[0];
+    temp_meta.SliceDists[0][0] = temp_meta.Extents[0] / static_cast<float>(temp_meta.Resolution[0] - 1);
+    temp_meta.SliceDists[1] = new float[0];
+    temp_meta.SliceDists[1][0] = temp_meta.Extents[1] / static_cast<float>(temp_meta.Resolution[1] - 1);
+    temp_meta.SliceDists[2] = new float[0];
+    temp_meta.SliceDists[2][0] = temp_meta.Extents[2] / static_cast<float>(temp_meta.Resolution[2] - 1);
+
+    temp_meta.IsUniform[0] = true;
+    temp_meta.IsUniform[1] = true;
+    temp_meta.IsUniform[2] = true;
+
+    metadata_density_ = temp_meta.Clone();
+    metadata_density_.Components = 1;
+    metadata_density_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
+    metadata_density_.ScalarLength = sizeof(float);
+    metadata_density_.MinValues = new double[1];
+    metadata_density_.MinValues[0] = min_value_;
+    metadata_density_.MaxValues = new double[1];
+    metadata_density_.MaxValues[0] = max_value_;
+
+    metadata_velocity_ = temp_meta.Clone();
+    metadata_velocity_.Components = 3;
+    metadata_velocity_.ScalarType = geocalls::ScalarType_t::FLOATING_POINT;
+    metadata_velocity_.ScalarLength = sizeof(float) * 3;
+    metadata_velocity_.MinValues = new double[3];
+    std::copy(min_velocity_.begin(), min_velocity_.end(), metadata_velocity_.MinValues);
+    metadata_velocity_.MaxValues = new double[3];
+    std::copy(max_velocity_.begin(), max_velocity_.end(), metadata_velocity_.MaxValues);
+
+    // TODO check that there are no memory leaks here... probably there are with the cloning :/
 
     return true;
 }
@@ -223,6 +291,10 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
     size_t totalParticles = 0;
 
     auto const bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
+    if (bbox.IsEmpty()) {
+        megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: bounding box is empty");
+        return false;
+    }
 
     auto const voxelSideLength = voxel_size_slot_.Param<core::param::FloatParam>()->Value();
 
@@ -230,8 +302,11 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
     y_cells_ = static_cast<size_t>(std::ceil(bbox.Height() / voxelSideLength));
     z_cells_ = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
 
-    volume_.resize(x_cells_ * y_cells_ * z_cells_);
-    std::fill(volume_.begin(), volume_.end(), 0.0f);
+    density_.resize(x_cells_ * y_cells_ * z_cells_);
+    std::fill(density_.begin(), density_.end(), 0.0f);
+
+    velocity_.resize(x_cells_ * y_cells_ * z_cells_ * 3);
+    std::fill(velocity_.begin(), velocity_.end(), 0.0f);
 
     auto success = false;
     switch (splatting_method_slot_.Param<core::param::EnumParam>()->Value()) {
@@ -246,9 +321,13 @@ bool trialvolume::ParticleToVolume::createVolume(geocalls::MultiParticleDataCall
         megamol::core::utility::log::Log::DefaultLog.WriteError("ParticleToVolume: could not create volume");
     }
 
-    auto [min, max] = std::minmax_element(volume_.begin(), volume_.end());
+    auto [min, max] = std::minmax_element(density_.begin(), density_.end());
     min_value_ = *min;
     max_value_ = *max;
+
+    auto [min_vel, max_vel] = std::minmax_element(velocity_.begin(), velocity_.end());
+    min_velocity_ = {*min_vel, *min_vel, *min_vel}; // TODO change this to min/max of each component
+    max_velocity_ = {*max_vel, *max_vel, *max_vel};
 
     const auto endTime = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> diffMillis = endTime - startTime;
@@ -320,6 +399,10 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
         auto yAcc = ps.GetYAcc();
         auto zAcc = ps.GetZAcc();
 
+        auto const xDirAcc = ps.GetDXAcc();
+        auto const yDirAcc = ps.GetDYAcc();
+        auto const zDirAcc = ps.GetDZAcc();
+
         for (size_t j = 0; j < particleList.GetCount(); j++) {
             auto x = xAcc->Get_f(j);
             auto y = yAcc->Get_f(j);
@@ -343,7 +426,11 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
                 }
 
                 auto const index = (zBounded * y_cells_ + yBounded) * x_cells_ + xBounded;
-                volume_[index] += 1.0f;
+                density_[index] += 1.0f;
+
+                velocity_[index * 3 + 0] += xDirAcc->Get_f(j);
+                velocity_[index * 3 + 1] += yDirAcc->Get_f(j);
+                velocity_[index * 3 + 2] += zDirAcc->Get_f(j);
             } else {
                 for (auto dz = -kernelCellSpan; dz <= kernelCellSpan; ++dz) {
                     for (auto dy = -kernelCellSpan; dy <= kernelCellSpan; ++dy) {
@@ -367,13 +454,27 @@ bool trialvolume::ParticleToVolume::computeKernel(geocalls::MultiParticleDataCal
                                 lengthFunction(dx * voxelSideLength, dy * voxelSideLength, dz * voxelSideLength);
                             auto const weight = kernel(dist);
 
-                            volume_[index] += weight;
+                            density_[index] += weight;
+
+                            velocity_[index * 3 + 0] += xDirAcc->Get_f(j) * weight;
+                            velocity_[index * 3 + 1] += yDirAcc->Get_f(j) * weight;
+                            velocity_[index * 3 + 2] += zDirAcc->Get_f(j) * weight;
                         }
                     }
                 }
             }
         }
     }
+
+    // Normalize velocity
+    for (size_t i = 0; i < x_cells_ * y_cells_ * z_cells_; i++) {
+        if (density_[i] > 0.0f) {
+            velocity_[i * 3 + 0] /= density_[i];
+            velocity_[i * 3 + 1] /= density_[i];
+            velocity_[i * 3 + 2] /= density_[i];
+        }
+    }
+
     return true;
 }
 
@@ -451,6 +552,7 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
                     cell.neighbors(neighbors);
                     auto weightSum = 0.0;
                     auto interpolated = 0.0;
+                    auto interpolatedVelocity = std::array<double, 3>{0.0, 0.0, 0.0};
 
                     for (size_t i = 0; i < neighbors.size(); i++) {
                         auto neighborId = neighbors[i];
@@ -491,12 +593,33 @@ bool trialvolume::ParticleToVolume::computeNaturalNeighborhood(geocalls::MultiPa
                         // Interpolate the distance to the neighbor
                         // TODO change this to use actual point data (e.g. color, etc.)
                         interpolated += weights[i] * kernel(dist);
+
+                        // Interpolate the velocity to the neighbor
+                        auto const xDirAcc = ps.GetDXAcc();
+                        auto const yDirAcc = ps.GetDYAcc();
+                        auto const zDirAcc = ps.GetDZAcc();
+                        auto const xDir = xDirAcc->Get_f(neighborId);
+                        auto const yDir = yDirAcc->Get_f(neighborId);
+                        auto const zDir = zDirAcc->Get_f(neighborId);
+                        interpolatedVelocity[0] += weights[i] * xDir;
+                        interpolatedVelocity[1] += weights[i] * yDir;
+                        interpolatedVelocity[2] += weights[i] * zDir;
                     }
                     // Normalize the laplacian weights
                     interpolated /= weightSum;
 
+                    // Normalize the velocity
+                    interpolatedVelocity[0] /= weightSum;
+                    interpolatedVelocity[1] /= weightSum;
+                    interpolatedVelocity[2] /= weightSum;
+
                     // Apply the rbf
-                    volume_[index] = interpolated;
+                    density_[index] = interpolated;
+
+                    // Apply the velocity
+                    velocity_[index * 3 + 0] = interpolatedVelocity[0];
+                    velocity_[index * 3 + 1] = interpolatedVelocity[1];
+                    velocity_[index * 3 + 2] = interpolatedVelocity[2];
                 }
             }
     return true;
