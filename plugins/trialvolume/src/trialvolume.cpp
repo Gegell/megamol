@@ -9,6 +9,7 @@
 #include "ParticleToVolume.h"
 #include "VtrFileReader.h"
 #include "VolumeSegmentation.h"
+#include "VolumeClusterTracking.h"
 #include "MeshSegmentationCall.h"
 #include "MeshSegmentation.h"
 #include "SegmentationAnalysis.h"
@@ -43,6 +44,7 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeSegmentation>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentation>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::SegmentationAnalysis>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeClusterTracking>();
 
         // register calls
         call_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentationCall>();
