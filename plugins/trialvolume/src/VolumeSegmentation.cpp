@@ -73,15 +73,17 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         return false;
     }
 
-    in_volume_data_call->SetFrameID(call.FrameID());
-    if (!(*in_volume_data_call)(1)) {
-        megamol::core::utility::log::Log::DefaultLog.WriteError("[VolumeSegmentation] Failed to get volume extents");
-        return false;
-    }
-    if (!(*in_volume_data_call)(0)) {
-        megamol::core::utility::log::Log::DefaultLog.WriteError("[VolumeSegmentation] Failed to get volume data");
-        return false;
-    }
+    do {
+        in_volume_data_call->SetFrameID(call.FrameID());
+        if (!(*in_volume_data_call)(1)) {
+            core::utility::log::Log::DefaultLog.WriteError("[VolumeSegmentation] Failed to get volume extents");
+            return false;
+        }
+        if (!(*in_volume_data_call)(0)) {
+            core::utility::log::Log::DefaultLog.WriteError("[VolumeSegmentation] Failed to get volume data");
+            return false;
+        }
+    } while (in_volume_data_call->FrameID() != call.FrameID());
 
     auto metadata = in_volume_data_call->GetMetadata();
     if (metadata->Components != 1 || metadata->ScalarType != geocalls::ScalarType_t::FLOATING_POINT) {
@@ -101,12 +103,13 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         auto threshold = metadata->MinValues[0] + iso_level * (metadata->MaxValues[0] - metadata->MinValues[0]);
         // TODO might need to be replaced with only the absolute iso level instead of relative
         // as the min and max values are not necessarily the same for different frames
-        
+
         // Fetch the volume data
         auto* volume_data = static_cast<float*>(in_volume_data_call->GetData());
 
         // Initialize the volume segmentation data like the volume data
-        segment_ids_.resize(metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2], static_cast<segmentId_t>(0));
+        segment_ids_.resize(
+            metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2], static_cast<segmentId_t>(0));
         std::fill(segment_ids_.begin(), segment_ids_.end(), static_cast<segmentId_t>(0));
         segment_count_ = 0;
 
@@ -125,7 +128,8 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
         // Compute the new output hash
         output_hash_ = megamol::core::utility::DataHash(iso_level, input_data_hash_);
 
-        megamol::core::utility::log::Log::DefaultLog.WriteInfo("[VolumeSegmentation] Found %lld segments", segment_count_);
+        megamol::core::utility::log::Log::DefaultLog.WriteInfo(
+            "[VolumeSegmentation] Found %lld segments", segment_count_);
     }
 
     // Copy most of the previous metadata attributes to the given call
@@ -140,7 +144,7 @@ bool VolumeSegmentation::computeSegmentation(geocalls::VolumetricDataCall& call)
     call.SetFrameID(in_volume_data_call->FrameID());
     call.SetData(segment_ids_.data());
     call.SetDataHash(output_hash_);
-    call.SetExtent(1, segment_metadata_.Origin[0], segment_metadata_.Origin[1], segment_metadata_.Origin[2],
+    call.SetExtent(segment_metadata_.NumberOfFrames, segment_metadata_.Origin[0], segment_metadata_.Origin[1], segment_metadata_.Origin[2],
         segment_metadata_.Origin[0] + segment_metadata_.Extents[0],
         segment_metadata_.Origin[1] + segment_metadata_.Extents[1],
         segment_metadata_.Origin[2] + segment_metadata_.Extents[2]);

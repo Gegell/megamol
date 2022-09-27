@@ -203,7 +203,7 @@ bool trialvolume::ParticleToVolume::assertData(geocalls::VolumetricDataCall& cal
     geocalls::VolumetricDataCall::Metadata temp_meta;
 
     temp_meta.GridType = geocalls::GridType_t::CARTESIAN;
-    temp_meta.NumberOfFrames = 1;
+    temp_meta.NumberOfFrames = inMultiParticleDataCall->FrameCount();
     temp_meta.Components = 0;
     temp_meta.ScalarLength = 0;
 
