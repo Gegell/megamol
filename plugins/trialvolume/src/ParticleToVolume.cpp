@@ -142,6 +142,7 @@ bool trialvolume::ParticleToVolume::getDataCallback(core::Call& caller) {
     outVolumetricDataCall->SetFrameID(time_);
     outVolumetricDataCall->SetData(density_.data());
     outVolumetricDataCall->SetDataHash(data_hash_ * 2 + 0);
+    outVolumetricDataCall->SetFrameCount(metadata_density_.NumberOfFrames);
 
     return true;
 }
@@ -163,6 +164,7 @@ bool trialvolume::ParticleToVolume::getVelocityCallback(core::Call& caller) {
     outVolumetricDataCall->SetFrameID(time_);
     outVolumetricDataCall->SetData(velocity_.data());
     outVolumetricDataCall->SetDataHash(data_hash_ * 2 + 1);
+    outVolumetricDataCall->SetFrameCount(metadata_velocity_.NumberOfFrames);
 
     return true;
 }
