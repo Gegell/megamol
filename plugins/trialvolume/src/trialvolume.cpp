@@ -5,15 +5,17 @@
  */
 
 #include "DualContouring.h"
+#include "GraphCall.h"
+#include "GraphDotWriter.h"
+#include "IdentityToICol.h"
+#include "MeshSegmentation.h"
+#include "MeshSegmentationCall.h"
 #include "ParticleClusterTracking.h"
 #include "ParticleToVolume.h"
-#include "VtrFileReader.h"
-#include "VolumeSegmentation.h"
-#include "VolumeClusterTracking.h"
-#include "MeshSegmentationCall.h"
-#include "MeshSegmentation.h"
 #include "SegmentationAnalysis.h"
-#include "IdentityToICol.h"
+#include "VolumeClusterTracking.h"
+#include "VolumeSegmentation.h"
+#include "VtrFileReader.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"
@@ -45,9 +47,11 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentation>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::SegmentationAnalysis>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeClusterTracking>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::GraphDotWriter>();
 
         // register calls
         call_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentationCall>();
+        call_descriptions.RegisterAutoDescription<megamol::trialvolume::GraphCall>();
     }
 };
 } // namespace megamol::trialvolume
