@@ -29,7 +29,8 @@ ADIOSFlexConvert::ADIOSFlexConvert()
         , flexIDSlot("id", "The name of the data holding the particle id.")
         , flexVXSlot("direction::vx", "The name of the data holding the vx-coordinate.")
         , flexVYSlot("direction::vy", "The name of the data holding the vy-coordinate.")
-        , flexVZSlot("direction::vz", "The name of the data holding the vz-coordinate.") {
+        , flexVZSlot("direction::vz", "The name of the data holding the vz-coordinate.")
+        , flexTimestampSlot("timestamp", "The name of the data holding the timestamp.") {
 
     this->mpSlot.SetCallback(geocalls::MultiParticleDataCall::ClassName(),
         geocalls::MultiParticleDataCall::FunctionName(0), &ADIOSFlexConvert::getDataCallback);
@@ -83,6 +84,10 @@ ADIOSFlexConvert::ADIOSFlexConvert()
     this->flexVZSlot << new core::param::FlexEnumParam("undef");
     this->flexVZSlot.SetUpdateCallback(&ADIOSFlexConvert::paramChanged);
     this->MakeSlotAvailable(&this->flexVZSlot);
+
+    this->flexTimestampSlot << new core::param::FlexEnumParam("undef");
+    this->flexTimestampSlot.SetUpdateCallback(&ADIOSFlexConvert::paramChanged);
+    this->MakeSlotAvailable(&this->flexTimestampSlot);
 }
 
 ADIOSFlexConvert::~ADIOSFlexConvert() {
@@ -127,6 +132,7 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
             this->flexVXSlot.Param<core::param::FlexEnumParam>()->AddValue(var);
             this->flexVYSlot.Param<core::param::FlexEnumParam>()->AddValue(var);
             this->flexVZSlot.Param<core::param::FlexEnumParam>()->AddValue(var);
+            this->flexTimestampSlot.Param<core::param::FlexEnumParam>()->AddValue(var);
         }
 
         cad->setFrameIDtoLoad(mpdc->FrameID());
@@ -143,6 +149,8 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
         const std::string vx_str = std::string(this->flexVXSlot.Param<core::param::FlexEnumParam>()->ValueString());
         const std::string vy_str = std::string(this->flexVYSlot.Param<core::param::FlexEnumParam>()->ValueString());
         const std::string vz_str = std::string(this->flexVZSlot.Param<core::param::FlexEnumParam>()->ValueString());
+        const std::string ts_str =
+            std::string(this->flexTimestampSlot.Param<core::param::FlexEnumParam>()->ValueString());
 
         if (pos_str != "undef") {
             if (!cad->inquireVar(pos_str)) {
@@ -222,6 +230,17 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
                 megamol::core::utility::log::Log::DefaultLog.WriteError(
                     "[ADIOSFlexConvert] variable \"%s\" does not exist.", vz_str.c_str());
                 hasVel = false;
+            }
+        }
+
+        // Set timestamp
+        bool hasTimestamp = false;
+        if (ts_str != "undef") {
+            if (!cad->inquireVar(ts_str)) {
+                megamol::core::utility::log::Log::DefaultLog.WriteError(
+                    "[ADIOSFlexConvert] variable \"%s\" does not exist.", ts_str.c_str());
+            } else {
+                hasTimestamp = true;
             }
         }
 
@@ -378,6 +397,12 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
         // Set bounding box
         mpdc->AccessBoundingBoxes().SetObjectSpaceBBox(cubo);
         mpdc->AccessBoundingBoxes().SetObjectSpaceClipBox(cubo);
+
+        // Set timestamp
+        if (hasTimestamp){
+            auto ts = cad->getData(ts_str)->GetAsFloat();
+            mpdc->SetTimeStamp(ts[0]);
+        }
 
 
         // Set particles

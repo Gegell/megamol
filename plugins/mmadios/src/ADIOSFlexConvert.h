@@ -91,6 +91,7 @@ private:
     core::param::ParamSlot flexVXSlot;
     core::param::ParamSlot flexVYSlot;
     core::param::ParamSlot flexVZSlot;
+    core::param::ParamSlot flexTimestampSlot;
 
 
     std::vector<float> mix;
