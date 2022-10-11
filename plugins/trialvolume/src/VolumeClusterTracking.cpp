@@ -258,15 +258,24 @@ void VolumeClusterTracking::computeTracks() {
                 break;
             }
         } while (velocity_call->FrameID() != t);
-        while (has_timestamp_data && timestamp_call->FrameID() != t) {
+        do {
+            if (!has_timestamp_data) {
+                break;
+            }
             timestamp_call->SetFrameID(t, true);
             if (!(*timestamp_call)(1)) {
                 core::utility::log::Log::DefaultLog.WriteWarn(
                     "[VolumeClusterTracking] Unable to fetch timestamp extents for frame %u.", t);
-                has_timestamp_data = false;
+                found_frame_data = false;
                 break;
             }
-        }
+            if (!(*timestamp_call)(0)) {
+                core::utility::log::Log::DefaultLog.WriteWarn(
+                    "[VolumeClusterTracking] Unable to fetch timestamp data for frame %u.", t);
+                found_frame_data = false;
+                break;
+            }
+        } while (timestamp_call->FrameID() != t);
         if (!found_frame_data) {
             continue;
         }
