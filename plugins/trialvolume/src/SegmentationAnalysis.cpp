@@ -1,5 +1,5 @@
-#include "SegmentationAnalysis.h"
-#include "MeshSegmentationCall.h"
+#include "trialvolume/SegmentationAnalysis.h"
+#include "trialvolume/MeshSegmentationCall.h"
 
 #include "omp.h"
 

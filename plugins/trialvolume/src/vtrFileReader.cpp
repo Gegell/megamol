@@ -1,4 +1,4 @@
-#include "VtrFileReader.h"
+#include "trialvolume/VtrFileReader.h"
 
 #include <iostream>
 #include <fstream>
@@ -93,7 +93,7 @@ bool trialvolume::VtrFileReader::loadFile() {
     //  - Amount: int (expected to be 1)
     //  - Offset: int offset in blob in bytes
     //  - Size: int amount of bytes total
-    
+
     // Parse header line by line
     std::string line;
     std::string name;
@@ -124,7 +124,7 @@ bool trialvolume::VtrFileReader::loadFile() {
         }
         // Check if name is given
         if (name == "x_coordinates") {
-            // TODO: Actually use the vof as volumes of the cells not as values on the grid points 
+            // TODO: Actually use the vof as volumes of the cells not as values on the grid points
             metadata_.Resolution[0] = size / 8 - 1;
             offsets[0] = offset;
         } else if (name == "y_coordinates") {

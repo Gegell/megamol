@@ -1,4 +1,4 @@
-#include "MeshSegmentationCall.h"
+#include "trialvolume/MeshSegmentationCall.h"
 
 namespace megamol::trialvolume {
 

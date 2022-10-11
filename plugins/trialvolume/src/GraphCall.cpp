@@ -1,4 +1,4 @@
-#include "GraphCall.h"
+#include "trialvolume/GraphCall.h"
 
 using namespace megamol::trialvolume;
 

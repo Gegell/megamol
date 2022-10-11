@@ -1,5 +1,5 @@
-#include "MeshSegmentation.h"
-#include "MeshSegmentationCall.h"
+#include "trialvolume/MeshSegmentation.h"
+#include "trialvolume/MeshSegmentationCall.h"
 
 #include "mesh/TriangleMeshCall.h"
 #include "mmcore/param/ButtonParam.h"

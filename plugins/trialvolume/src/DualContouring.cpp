@@ -1,4 +1,4 @@
-#include "DualContouring.h"
+#include "trialvolume/DualContouring.h"
 
 #include "omp.h"
 #include <vector>

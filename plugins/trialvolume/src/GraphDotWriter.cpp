@@ -1,5 +1,5 @@
-#include "GraphDotWriter.h"
-#include "GraphCall.h"
+#include "trialvolume/GraphDotWriter.h"
+#include "trialvolume/GraphCall.h"
 
 #include "mmcore/param/ButtonParam.h"
 #include "mmcore/param/FilePathParam.h"

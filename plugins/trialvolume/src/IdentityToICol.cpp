@@ -1,4 +1,4 @@
-#include "IdentityToICol.h"
+#include "trialvolume/IdentityToICol.h"
 
 megamol::trialvolume::IdentityToICol::IdentityToICol(void)
         : datatools::AbstractParticleManipulator("outData", "indata") {}

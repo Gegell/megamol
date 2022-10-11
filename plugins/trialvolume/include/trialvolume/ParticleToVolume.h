@@ -130,7 +130,7 @@ private:
 
     bool assertData(geocalls::VolumetricDataCall &caller);
 
-    bool createVolume(geocalls::MultiParticleDataCall* caller);
+    virtual bool createVolume(geocalls::MultiParticleDataCall* caller);
 
     bool computeNaturalNeighborhood(geocalls::MultiParticleDataCall* caller);
 

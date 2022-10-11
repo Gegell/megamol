@@ -1,4 +1,4 @@
-#include "VolumeSegmentation.h"
+#include "trialvolume/VolumeSegmentation.h"
 
 #include <stack>
 #include <vector>
