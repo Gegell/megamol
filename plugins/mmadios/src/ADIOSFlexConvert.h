@@ -97,6 +97,7 @@ private:
     std::vector<float> mix;
 
     size_t currentFrame = -1;
+    float current_timestamp_ = 0.0f;
 
     geocalls::SimpleSphericalParticles::ColourDataType colType = geocalls::SimpleSphericalParticles::COLDATA_NONE;
     geocalls::SimpleSphericalParticles::VertexDataType vertType = geocalls::SimpleSphericalParticles::VERTDATA_NONE;

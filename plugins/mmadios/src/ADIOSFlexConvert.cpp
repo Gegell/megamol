@@ -400,8 +400,7 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
 
         // Set timestamp
         if (hasTimestamp){
-            auto ts = cad->getData(ts_str)->GetAsFloat();
-            mpdc->SetTimeStamp(ts[0]);
+            current_timestamp_ = cad->getData(ts_str)->GetAsFloat()[0];
         }
 
 
@@ -422,6 +421,7 @@ bool ADIOSFlexConvert::getDataCallback(core::Call& call) {
         mpdc->AccessParticles(0).SetBBox(cubo);
     }
 
+    mpdc->SetTimeStamp(current_timestamp_);
     mpdc->SetFrameCount(cad->getFrameCount());
     mpdc->SetDataHash(cad->getDataHash());
     currentFrame = mpdc->FrameID();
