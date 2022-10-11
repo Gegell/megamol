@@ -23,7 +23,8 @@ VolumeClusterTracking::VolumeClusterTracking()
         , frame_start_param_("frame::start", "The first frame to track")
         , frame_end_param_("frame::end", "The last frame to track")
         , frame_step_param_("frame::step", "The step size for the frame range")
-        , dot_file_name_("dot_file_name", "The file name for the .dot file") {
+        , dot_file_name_("dot_file_name", "The file name for the .dot file")
+        , tsv_directory_("tsv_directory", "The directory for the .tsv files") {
     // Setup the input slots
     in_cluster_id_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_cluster_id_slot_);
@@ -56,6 +57,11 @@ VolumeClusterTracking::VolumeClusterTracking()
     dot_file_name_.SetParameter(
         new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
     MakeSlotAvailable(&dot_file_name_);
+
+    // Setup the tsv directory
+    tsv_directory_.SetParameter(
+        new core::param::FilePathParam("out.graph", core::param::FilePathParam::Flag_Directory_ToBeCreated));
+    MakeSlotAvailable(&tsv_directory_);
 
     // Setup manual start button
     start_button_.SetParameter(new core::param::ButtonParam());
@@ -173,8 +179,7 @@ void VolumeClusterTracking::computeTracks() {
         float total = 0.0f;
         for (auto j = 0; j < cluster_id_resolution[i]; j++) {
             grid_points[i].push_back(total);
-            switch (cluster_id_call->GetMetadata()->GridType)
-            {
+            switch (cluster_id_call->GetMetadata()->GridType) {
             case geocalls::VolumetricDataCall::GridType::RECTILINEAR:
                 total += cluster_id_call->GetMetadata()->SliceDists[i][j];
                 break;
@@ -182,8 +187,7 @@ void VolumeClusterTracking::computeTracks() {
                 total += cluster_id_call->GetMetadata()->SliceDists[i][0];
                 break;
             default:
-                core::utility::log::Log::DefaultLog.WriteError(
-                    "[VolumeClusterTracking] Unsupported grid type.");
+                core::utility::log::Log::DefaultLog.WriteError("[VolumeClusterTracking] Unsupported grid type.");
                 return;
             }
         }
@@ -284,16 +288,19 @@ void VolumeClusterTracking::computeTracks() {
                     }
 
                     // Check if the cluster id at the new position is the same as the cluster id at the current position
-                    auto const current_cluster_id = static_cast<size_t>(cluster_id_call->GetAbsoluteVoxelValue(new_x, new_y, new_z));
+                    auto const current_cluster_id =
+                        static_cast<size_t>(cluster_id_call->GetAbsoluteVoxelValue(new_x, new_y, new_z));
                     auto const prev_cluster_id = prev_cluster_ids[current_index];
 
 
                     if (current_cluster_id != 0) {
                         auto& current_cluster = current_cluster_list[current_cluster_id - 1];
-                        auto const cell_pos = vislib::math::Vector<float, 3>(grid_points[0][x], grid_points[1][y], grid_points[2][z]);
+                        auto const cell_pos =
+                            vislib::math::Vector<float, 3>(grid_points[0][x], grid_points[1][y], grid_points[2][z]);
 
                         if (current_cluster.total_mass == 0) {
-                            current_cluster.bounding_box.Set(cell_pos.X(), cell_pos.Y(), cell_pos.Z(), cell_pos.X(), cell_pos.Y(), cell_pos.Z());
+                            current_cluster.bounding_box.Set(
+                                cell_pos.X(), cell_pos.Y(), cell_pos.Z(), cell_pos.X(), cell_pos.Y(), cell_pos.Z());
                         } else {
                             current_cluster.bounding_box.GrowToPoint(cell_pos.X(), cell_pos.Y(), cell_pos.Z());
                         }
@@ -333,6 +340,7 @@ void VolumeClusterTracking::computeTracks() {
 
         // 7. Write the cluster data to the output file
         generateDotFile(true);
+        generateTsvFiles(true);
     }
 }
 
@@ -383,5 +391,55 @@ bool VolumeClusterTracking::generateDotFile(bool silent) {
         }
     }
     dot_file << "}" << std::endl;
+    return true;
+}
+
+bool VolumeClusterTracking::generateTsvFiles(bool silent) {
+    auto dirname = tsv_directory_.Param<core::param::FilePathParam>()->Value();
+    if (dirname.empty()) {
+        if (!silent) {
+            megamol::core::utility::log::Log::DefaultLog.WriteError(
+                "[ParticleClusterTracking] No directory specified for tsv files.");
+        }
+        return false;
+    }
+
+    if (!std::filesystem::exists(dirname)) {
+        std::filesystem::create_directories(dirname);
+    }
+
+    std::ofstream clusters_file((dirname / "nodes.tsv").generic_u8string().c_str());
+    std::ofstream connections_file((dirname / "edges.tsv").generic_u8string().c_str());
+
+    // Write the header for the clusters file
+    clusters_file << "graph_id\tframe_id\tlocal_id\ttotal_mass\tcenter_of_mass\tvelocity\tbbox" << std::endl;
+    connections_file << "from\tto\tkept" << std::endl;
+    // Iterate over all time steps
+    for (size_t t = 0; t < cluster_metadata_.size(); t++) {
+        auto& cluster_list = cluster_metadata_[t];
+        // Iterate over all clusters in the current time step
+        for (auto& cluster : cluster_list) {
+            clusters_file << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\t" << cluster.frame_id
+                          << "\t" << cluster.local_time_cluster_id << "\t" << cluster.total_mass << "\t"
+                          << cluster.center_of_mass.X() << "," << cluster.center_of_mass.Y() << ","
+                          << cluster.center_of_mass.Z() << "\t" << cluster.velocity.X() << "," << cluster.velocity.Y()
+                          << "," << cluster.velocity.Z() << "\t" << cluster.bounding_box.Left() << ","
+                          << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
+                          << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
+                          << cluster.bounding_box.Front() << std::endl;
+            // Iterate over all parents of the current cluster and write the edges
+            // connecting the current cluster to the previous time steps clusters
+            for (auto& p : cluster.parents) {
+                // Discard clusters with too few connections
+                if (p.second < min_connection_count_.Param<core::param::FloatParam>()->Value()) {
+                    continue;
+                }
+                auto parent_cluster = cluster_metadata_[t - 1][p.first];
+                connections_file << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\t"
+                                 << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\t" << p.second
+                                 << std::endl;
+            }
+        }
+    }
     return true;
 }

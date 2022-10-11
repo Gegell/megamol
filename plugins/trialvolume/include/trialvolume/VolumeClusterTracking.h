@@ -74,6 +74,9 @@ private:
     /** Generate a corresponding .dot file for the current tracks */
     bool generateDotFile(bool silent=false);
 
+    /** Generate the corresponding .tsv files for the current tracks */
+    bool generateTsvFiles(bool silent=false);
+
     /** The slot for the cluster track call */
     core::CalleeSlot out_cluster_track_slot_;
 
@@ -100,6 +103,9 @@ private:
 
     /** The file name for the .dot file */
     core::param::ParamSlot dot_file_name_;
+
+    /** The name for the .tsv directory */
+    core::param::ParamSlot tsv_directory_;
 
     /** Store the cluster metadata for each frame */
     std::vector<std::vector<ClusterMetadata_t>> cluster_metadata_;
