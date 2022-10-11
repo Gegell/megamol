@@ -86,6 +86,9 @@ private:
     /** The slot for the volume velocity call */
     core::CallerSlot in_velocity_slot_;
 
+    /** The slot for the timestamp information */
+    core::CallerSlot in_timestamp_slot_;
+
     /** The slot for the time step size */
     core::param::ParamSlot time_step_size_;
 
@@ -109,6 +112,9 @@ private:
 
     /** Store the cluster metadata for each frame */
     std::vector<std::vector<ClusterMetadata_t>> cluster_metadata_;
+
+    /** Store the timestep of every frame */
+    std::vector<float> frame_timesteps_;
 
     /** The hash of the last cluster call */
     size_t hash_;

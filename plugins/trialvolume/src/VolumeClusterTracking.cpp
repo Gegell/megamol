@@ -1,5 +1,6 @@
 #include "trialvolume/VolumeClusterTracking.h"
 
+#include "geometry_calls/MultiParticleDataCall.h"
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/ButtonParam.h"
@@ -15,6 +16,7 @@ using namespace megamol::trialvolume;
 VolumeClusterTracking::VolumeClusterTracking()
         : in_cluster_id_slot_("in_cluster_id", "The cluster id data")
         , in_velocity_slot_("in_velocity", "The velocity data")
+        , in_timestamp_slot_("in_timestamp", "The timestamp data")
         , out_cluster_track_slot_("out_cluster_id", "The cluster tracking data")
         , start_button_("start", "Start tracking")
         , time_step_size_("time_step_size", "The time step size")
@@ -32,6 +34,11 @@ VolumeClusterTracking::VolumeClusterTracking()
     in_velocity_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_velocity_slot_);
 
+    // HACK: This is a hack to get the timestamp data from the VolumeDataCall,
+    // since the VolumetricDataCall does not support timestamp data yet.
+    in_timestamp_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
+    MakeSlotAvailable(&in_timestamp_slot_);
+
     // Setup the output slots
     // TODO: This needs to be its own call transporting the graph data
 
@@ -40,8 +47,8 @@ VolumeClusterTracking::VolumeClusterTracking()
     MakeSlotAvailable(&min_connection_count_);
 
     // Setup the time step size
-    time_step_size_.SetParameter(new core::param::FloatParam(1, 0));
-    MakeSlotAvailable(&time_step_size_);
+    // time_step_size_.SetParameter(new core::param::FloatParam(1, 0));
+    // MakeSlotAvailable(&time_step_size_);
 
     // Setup the frame range
     frame_range_limit_param_.SetParameter(new core::param::BoolParam(false));
@@ -107,6 +114,12 @@ void VolumeClusterTracking::computeTracks() {
         return;
     }
 
+    auto const timestamp_call = in_timestamp_slot_.CallAs<geocalls::MultiParticleDataCall>();
+    bool has_timestamp_data = timestamp_call != nullptr;
+    if (!has_timestamp_data) {
+        core::utility::log::Log::DefaultLog.WriteWarn("[VolumeClusterTracking] No timestamp data available.");
+    }
+
     // Capture the frame range by calling  the extents call
     cluster_id_call->SetFrameID(0, true);
     if (!(*cluster_id_call)(1)) {
@@ -119,6 +132,14 @@ void VolumeClusterTracking::computeTracks() {
         core::utility::log::Log::DefaultLog.WriteError(
             "[VolumeClusterTracking] Unable to fetch velocity extents for frame 0.");
         return;
+    }
+    if (has_timestamp_data) {
+        timestamp_call->SetFrameID(0, true);
+        if (!(*timestamp_call)(1)) {
+            core::utility::log::Log::DefaultLog.WriteWarn(
+                "[VolumeClusterTracking] Unable to fetch timestamp extents for frame 0.");
+            has_timestamp_data = false;
+        }
     }
 
     // Check that both calls correspond to one another (at least in terms of the frame count)
@@ -171,7 +192,8 @@ void VolumeClusterTracking::computeTracks() {
     }
     frame_end = std::min(frame_end, cluster_id_call->FrameCount() - 1);
 
-    auto const dt = time_step_size_.Param<core::param::FloatParam>()->Value();
+    frame_timesteps_.clear();
+    frame_timesteps_.reserve((frame_end - frame_start) / frame_step + 1);
 
     // Precompute the grid offsets for equirectangular grids
     std::array<std::vector<float>, 3> grid_points;
@@ -200,6 +222,7 @@ void VolumeClusterTracking::computeTracks() {
     auto const index_extent = cluster_id_resolution[0] * cluster_id_resolution[1] * cluster_id_resolution[2];
     std::vector<size_t> prev_cluster_ids(index_extent, 0);
     std::vector<ClusterMetadata_t> prev_cluster_list;
+    float prev_timestamp;
 
     // Iterate over every time step t
     for (auto t = frame_start; t <= frame_end; t += frame_step) {
@@ -235,9 +258,21 @@ void VolumeClusterTracking::computeTracks() {
                 break;
             }
         } while (velocity_call->FrameID() != t);
+        while (has_timestamp_data && timestamp_call->FrameID() != t) {
+            timestamp_call->SetFrameID(t, true);
+            if (!(*timestamp_call)(1)) {
+                core::utility::log::Log::DefaultLog.WriteWarn(
+                    "[VolumeClusterTracking] Unable to fetch timestamp extents for frame %u.", t);
+                has_timestamp_data = false;
+                break;
+            }
+        }
         if (!found_frame_data) {
             continue;
         }
+
+        // Estimate the time step size
+        auto const curr_timestamp = has_timestamp_data ? timestamp_call->GetTimeStamp() : t;
 
         // For each cell perform a single euler step to compute the new position
         // and compare the cluster id at the new position in the next time step
@@ -261,57 +296,67 @@ void VolumeClusterTracking::computeTracks() {
                 for (size_t x = 0; x < cluster_id_resolution[0]; ++x) {
                     auto const current_index =
                         x + y * cluster_id_resolution[0] + z * cluster_id_resolution[0] * cluster_id_resolution[1];
+                    auto const current_cluster_id =
+                        static_cast<size_t>(cluster_id_call->GetAbsoluteVoxelValue(x, y, z));
+
+                    if (current_cluster_id == 0) {
+                        continue;
+                    }
 
                     auto const x_vel = vel_ptr[current_index * 3 + 0];
                     auto const y_vel = vel_ptr[current_index * 3 + 1];
                     auto const z_vel = vel_ptr[current_index * 3 + 2];
 
-                    // Compute the new position
-                    auto const x_pos = grid_points[0][x] - x_vel * dt * frame_step;
-                    auto const y_pos = grid_points[1][y] - y_vel * dt * frame_step;
-                    auto const z_pos = grid_points[2][z] - z_vel * dt * frame_step;
+                    auto& current_cluster = current_cluster_list[current_cluster_id - 1];
+                    auto const cell_pos =
+                        vislib::math::Vector<float, 3>(grid_points[0][x], grid_points[1][y], grid_points[2][z]);
 
-                    // Find the new position in the grid (use std::lower_bound)
+                    if (current_cluster.total_mass == 0) {
+                        current_cluster.bounding_box.Set(
+                            cell_pos.X(), cell_pos.Y(), cell_pos.Z(), cell_pos.X(), cell_pos.Y(), cell_pos.Z());
+                    } else {
+                        current_cluster.bounding_box.GrowToPoint(cell_pos.X(), cell_pos.Y(), cell_pos.Z());
+                    }
+
+                    current_cluster.center_of_mass += cell_pos;
+                    current_cluster.velocity += vislib::math::Vector<float, 3>(x_vel, y_vel, z_vel);
+                    current_cluster.total_mass += 1.0f; // TODO: Use density instead of 1.0f
+
+                    if (t == frame_start) {
+                        continue;
+                    }
+
+                    // Compute the time step size between the 2 frame samples
+                    auto const dt = curr_timestamp - prev_timestamp;
+
+                    // Compute the previous position
+                    auto const x_pos = grid_points[0][x] - x_vel * dt;
+                    auto const y_pos = grid_points[1][y] - y_vel * dt;
+                    auto const z_pos = grid_points[2][z] - z_vel * dt;
+
+                    // Find the previous position in the grid (use std::lower_bound)
                     auto const x_it = std::lower_bound(grid_points[0].begin(), grid_points[0].end(), x_pos);
                     auto const y_it = std::lower_bound(grid_points[1].begin(), grid_points[1].end(), y_pos);
                     auto const z_it = std::lower_bound(grid_points[2].begin(), grid_points[2].end(), z_pos);
 
-                    auto const new_x = std::distance(grid_points[0].begin(), x_it);
-                    auto const new_y = std::distance(grid_points[1].begin(), y_it);
-                    auto const new_z = std::distance(grid_points[2].begin(), z_it);
+                    auto const prev_x = std::distance(grid_points[0].begin(), x_it);
+                    auto const prev_y = std::distance(grid_points[1].begin(), y_it);
+                    auto const prev_z = std::distance(grid_points[2].begin(), z_it);
 
 
                     // Check if the new position is inside the volume
-                    if (new_x < 0 || new_x >= cluster_id_resolution[0] || new_y < 0 ||
-                        new_y >= cluster_id_resolution[1] || new_z < 0 || new_z >= cluster_id_resolution[2]) {
+                    if (prev_x < 0 || prev_x >= cluster_id_resolution[0] || prev_y < 0 ||
+                        prev_y >= cluster_id_resolution[1] || prev_z < 0 || prev_z >= cluster_id_resolution[2]) {
                         continue;
                     }
 
                     // Check if the cluster id at the new position is the same as the cluster id at the current position
-                    auto const current_cluster_id =
-                        static_cast<size_t>(cluster_id_call->GetAbsoluteVoxelValue(new_x, new_y, new_z));
-                    auto const prev_cluster_id = prev_cluster_ids[current_index];
+                    auto const prev_index = prev_x + prev_y * cluster_id_resolution[0] +
+                                            prev_z * cluster_id_resolution[0] * cluster_id_resolution[1];
+                    auto const prev_cluster_id = prev_cluster_ids[prev_index];
 
-
-                    if (current_cluster_id != 0) {
-                        auto& current_cluster = current_cluster_list[current_cluster_id - 1];
-                        auto const cell_pos =
-                            vislib::math::Vector<float, 3>(grid_points[0][x], grid_points[1][y], grid_points[2][z]);
-
-                        if (current_cluster.total_mass == 0) {
-                            current_cluster.bounding_box.Set(
-                                cell_pos.X(), cell_pos.Y(), cell_pos.Z(), cell_pos.X(), cell_pos.Y(), cell_pos.Z());
-                        } else {
-                            current_cluster.bounding_box.GrowToPoint(cell_pos.X(), cell_pos.Y(), cell_pos.Z());
-                        }
-
-                        current_cluster.center_of_mass += cell_pos;
-                        current_cluster.velocity += vislib::math::Vector<float, 3>(x_vel, y_vel, z_vel);
-                        current_cluster.total_mass += 1.0f; // TODO: Use density instead of 1.0f
-
-                        if (t > frame_start && prev_cluster_id != 0) {
-                            current_cluster.parents[prev_cluster_id - 1] += 1; // TODO: Use density instead of 1
-                        }
+                    if (prev_cluster_id != 0) {
+                        current_cluster.parents[prev_cluster_id - 1] += 1; // TODO: Use density instead of 1
                     }
                 }
             }
@@ -333,6 +378,8 @@ void VolumeClusterTracking::computeTracks() {
         for (size_t i = 0; i < index_extent; i++) {
             prev_cluster_ids.push_back(static_cast<size_t>(id_ptr[i]));
         }
+        prev_timestamp = curr_timestamp;
+        frame_timesteps_.push_back(curr_timestamp);
 
         // 6. Report some statistics
         core::utility::log::Log::DefaultLog.WriteInfo(
@@ -356,6 +403,13 @@ bool VolumeClusterTracking::generateDotFile(bool silent) {
     }
     std::ofstream dot_file(filename.generic_u8string().c_str());
     dot_file << "digraph G {" << std::endl;
+
+    // Write all the time steps
+    dot_file << "graph [__timesteps=\"";
+    for (auto t : frame_timesteps_) {
+        dot_file << t << ",";
+    }
+    dot_file << "\"];" << std::endl;
 
     // Iterate over all time steps
     for (size_t t = 0; t < cluster_metadata_.size(); t++) {
@@ -410,10 +464,12 @@ bool VolumeClusterTracking::generateTsvFiles(bool silent) {
 
     std::ofstream clusters_file((dirname / "nodes.tsv").generic_u8string().c_str());
     std::ofstream connections_file((dirname / "edges.tsv").generic_u8string().c_str());
+    std::ofstream timesteps_file((dirname / "timesteps.tsv").generic_u8string().c_str());
 
     // Write the header for the clusters file
     clusters_file << "graph_id\tframe_id\tlocal_id\ttotal_mass\tcenter_of_mass\tvelocity\tbbox" << std::endl;
     connections_file << "from\tto\tkept" << std::endl;
+    timesteps_file << "frame_id\ttimestamp" << std::endl;
     // Iterate over all time steps
     for (size_t t = 0; t < cluster_metadata_.size(); t++) {
         auto& cluster_list = cluster_metadata_[t];
@@ -440,6 +496,7 @@ bool VolumeClusterTracking::generateTsvFiles(bool silent) {
                                  << std::endl;
             }
         }
+        timesteps_file << t << "\t" << frame_timesteps_[t] << std::endl;
     }
     return true;
 }
