@@ -27,7 +27,7 @@ public:
     TrialVolumePluginInstance()
             : megamol::core::utility::plugins::AbstractPluginInstance(
                   // machine-readable plugin assembly name
-                  "trailvolume", // TODO: change to something reasonable later
+                  "trialvolume", // TODO: change to something reasonable later
 
                   // human-readable plugin description
                   "Initial trial plugin for bachelor project"){};
