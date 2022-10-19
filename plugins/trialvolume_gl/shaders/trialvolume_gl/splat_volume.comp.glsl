@@ -25,19 +25,19 @@ layout(std430, binding = 1) buffer inVelocity {
     };
 #endif
 
-uniform KernelData {
+struct KernelInfo {
     uint type;
     uint boundary;
     uint metric;
     float radius;
-} kernel;
-
-uniform Dimension {
-    uvec3 numCells;
-    vec3 bboxMin;
-    vec3 bboxMax;
-    uint numParticles;
 };
+
+uniform KernelInfo kernel;
+
+uniform uvec3 numCells;
+uniform vec3 bboxMin;
+uniform vec3 bboxMax;
+uniform uint numParticles;
 
 layout(local_size_x = 32, local_size_y = 1, local_size_z = 1) in;
 
@@ -65,13 +65,13 @@ float gaussianKernel(float r, float eps) {
 }
 
 float metricLength(vec3 v) {
-    if (kernel.metric == 0) {
+    if (kernel.metric == 0u) {
         // Euclidean
         return length(v);
-    } else if (kernel.metric == 1) {
+    } else if (kernel.metric == 1u) {
         // Manhattan
         return abs(v.x) + abs(v.y) + abs(v.z);
-    } else if (kernel.metric == 2) {
+    } else if (kernel.metric == 2u) {
         // Chebyshev
         return max(max(abs(v.x), abs(v.y)), abs(v.z));
     } else {
@@ -115,10 +115,10 @@ void main() {
                     vec3 r = (vec3(cellOffset) + 0.5 + cellPos) * cellSize;
 
                     float weight = 1.0;
-                    if (kernel.type == 1) {
+                    if (kernel.type == 1u) {
                         // Bump
                         weight = bumpKernel(metricLength(r), 1.0/kernel.radius);
-                    } else if (kernel.type == 2) {
+                    } else if (kernel.type == 2u) {
                         // Gaussian
                         weight = gaussianKernel(metricLength(r), 1.0/kernel.radius);
                     }
@@ -159,6 +159,4 @@ void main() {
             }
         }
     }
-    splatDensity[index] = floatBitsToUint(1.0);
-    splatVelocity[index] = floatBitsToUint(vel);
 }

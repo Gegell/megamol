@@ -140,8 +140,7 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_position_buffer_);
         checkGLError;
-        glBufferSubData(
-            GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, pos_ptr);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, pos_ptr);
         checkGLError;
 
         const float* vel_ptr;
@@ -162,8 +161,7 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_velocity_buffer_);
         checkGLError;
-        glBufferSubData(
-            GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, vel_ptr);
+        glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, vel_ptr);
         checkGLError;
 
         offset += sizeof(float) * particles.GetCount() * 3;
@@ -171,25 +169,23 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
 }
 
 bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) {
-    glUseProgram(calc_volume_program_->getHandle());
+    calc_volume_program_->use();
 
     bindInputBuffer(caller);
     bindOutputBuffers();
 
     auto const& bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
-    calc_volume_program_->setUniform("Dimension.numCells", glm::ivec3(buffer_dimensions_));
-    calc_volume_program_->setUniform("Dimension.numParticles", static_cast<GLuint>(num_particles_));
-    calc_volume_program_->setUniform("Dimension.bboxMin", glm::vec3(bbox.Left(), bbox.Bottom(), bbox.Back()));
-    calc_volume_program_->setUniform("Dimension.bboxMax", glm::vec3(bbox.Right(), bbox.Top(), bbox.Front()));
+    calc_volume_program_->setUniform("numCells", buffer_dimensions_);
+    calc_volume_program_->setUniform("numParticles", static_cast<GLuint>(num_particles_));
+    calc_volume_program_->setUniform("bboxMin", glm::vec3(bbox.Left(), bbox.Bottom(), bbox.Back()));
+    calc_volume_program_->setUniform("bboxMax", glm::vec3(bbox.Right(), bbox.Top(), bbox.Front()));
     checkGLError;
 
-    calc_volume_program_->setUniform("KernelData.type", kernel_type_slot_.Param<core::param::EnumParam>()->Value());
-    calc_volume_program_->setUniform(
-        "KernelData.boundary", kernel_boundary_slot_.Param<core::param::EnumParam>()->Value());
-    calc_volume_program_->setUniform("KernelData.metric", kernel_metric_slot_.Param<core::param::EnumParam>()->Value());
-    calc_volume_program_->setUniform(
-        "KernelData.radius", kernel_radius_slot_.Param<core::param::FloatParam>()->Value());
+    calc_volume_program_->setUniform("kernel.type",     static_cast<GLuint>(kernel_type_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform("kernel.boundary", static_cast<GLuint>(kernel_boundary_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform("kernel.metric",   static_cast<GLuint>(kernel_metric_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform("kernel.radius", kernel_radius_slot_.Param<core::param::FloatParam>()->Value());
     checkGLError;
 
     // Actually start the computation
