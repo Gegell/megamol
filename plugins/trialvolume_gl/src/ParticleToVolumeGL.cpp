@@ -151,13 +151,13 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
             buffer.resize(particles.GetCount() * 3);
             vel_ptr = buffer.data();
             auto const& ps = particles.GetParticleStore();
-            auto const& xAcc = ps.GetXAcc();
-            auto const& yAcc = ps.GetYAcc();
-            auto const& zAcc = ps.GetZAcc();
+            auto const& dxAcc = ps.GetDXAcc();
+            auto const& dyAcc = ps.GetDYAcc();
+            auto const& dzAcc = ps.GetDZAcc();
             for (size_t j = 0; j < particles.GetCount(); ++j) {
-                buffer[j * 3 + 0] = xAcc->Get_f(j);
-                buffer[j * 3 + 1] = yAcc->Get_f(j);
-                buffer[j * 3 + 2] = zAcc->Get_f(j);
+                buffer[j * 3 + 0] = dxAcc->Get_f(j);
+                buffer[j * 3 + 1] = dyAcc->Get_f(j);
+                buffer[j * 3 + 2] = dzAcc->Get_f(j);
             }
         }
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_velocity_buffer_);
