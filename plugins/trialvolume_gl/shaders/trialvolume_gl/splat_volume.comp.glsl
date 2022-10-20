@@ -10,21 +10,19 @@ layout(std430, binding = 0) buffer InputBuffer {
     Particle particles[];
 };
 
+struct VoxelData {
 #ifdef GL_NV_shader_atomic_float
-    layout(std430, binding = 2) buffer outDensity {
-        float splatDensity[];
-    };
-    layout(std430, binding = 3) buffer outVelocity {
-        vec3 splatVelocity[];
-    };
+    vec3 velocity;
+    float density;
 #else
-    layout(std430, binding = 2) buffer outDensity {
-        uint splatDensity[];
-    };
-    layout(std430, binding = 3) buffer outVelocity {
-        uvec3 splatVelocity[];
-    };
+    uvec3 velocity;
+    uint density;
 #endif
+};
+
+layout(std430, binding = 2) buffer OutputBuffer {
+    VoxelData voxels[];
+};
 
 struct KernelInfo {
     uint type;
@@ -145,10 +143,10 @@ void main() {
                 float weight = computeKernel(dist);
                 uint cellIndex = (bounded.z * numCells.y + bounded.y) * numCells.x + bounded.x;
 
-                atomicAddFloat(splatDensity[cellIndex], weight);
-                atomicAddFloat(splatVelocity[cellIndex].x, weight * vel.x);
-                atomicAddFloat(splatVelocity[cellIndex].y, weight * vel.y);
-                atomicAddFloat(splatVelocity[cellIndex].z, weight * vel.z);
+                atomicAddFloat(voxels[cellIndex].density, weight);
+                atomicAddFloat(voxels[cellIndex].velocity.x, weight * vel.x);
+                atomicAddFloat(voxels[cellIndex].velocity.y, weight * vel.y);
+                atomicAddFloat(voxels[cellIndex].velocity.z, weight * vel.z);
             }
         }
     }

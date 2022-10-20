@@ -30,6 +30,11 @@ public:
     virtual std::vector<std::string> requested_lifetime_resources() override;
 
 private:
+    struct VoxelData {
+        glm::vec3 velocity;
+        GLfloat density;
+    };
+
     /**
      * Implementation of 'Create'.
      *
@@ -47,18 +52,16 @@ private:
 
     bool computeVolume(geocalls::MultiParticleDataCall* caller);
 
-    void bindOutputBuffers();
+    void bindOutputBuffers(std::vector<VoxelData>& voxels);
 
     void bindInputBuffer(geocalls::MultiParticleDataCall* caller);
 
-private:
     std::unique_ptr<glowl::GLSLProgram> calc_volume_program_;
 
     GLint splat_workgroup_size_[3];
     GLint max_workgroup_count_[3];
 
-    GLuint volume_density_buffer_;
-    GLuint volume_velocity_buffer_;
+    GLuint volume_buffer_;
 
     GLuint particle_buffer_;
 

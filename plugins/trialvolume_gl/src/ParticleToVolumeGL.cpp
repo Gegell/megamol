@@ -48,8 +48,7 @@ bool ParticleToVolumeGL::create(void) {
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1, &max_workgroup_count_[1]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2, &max_workgroup_count_[2]);
 
-    glGenBuffers(1, &volume_density_buffer_);
-    glGenBuffers(1, &volume_velocity_buffer_);
+    glGenBuffers(1, &volume_buffer_);
     glGenBuffers(1, &particle_buffer_);
 
     return true;
@@ -57,8 +56,7 @@ bool ParticleToVolumeGL::create(void) {
 
 void ParticleToVolumeGL::release(void) {
     // TODO release any data here
-    glDeleteBuffers(1, &volume_density_buffer_);
-    glDeleteBuffers(1, &volume_velocity_buffer_);
+    glDeleteBuffers(1, &volume_buffer_);
     glDeleteBuffers(1, &particle_buffer_);
 }
 
@@ -74,20 +72,16 @@ ParticleToVolumeGL::~ParticleToVolumeGL() {
     Release();
 }
 
-void ParticleToVolumeGL::bindOutputBuffers() {
+void ParticleToVolumeGL::bindOutputBuffers(std::vector<VoxelData>& output_buffer) {
     if (buffer_dimensions_ == glm::uvec3(x_cells_, y_cells_, z_cells_))
         return;
 
     buffer_dimensions_ = glm::uvec3(x_cells_, y_cells_, z_cells_);
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * density_.size(), density_.data(), GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, volume_density_buffer_);
-    checkGLError;
-
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * velocity_.size(), velocity_.data(), GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, volume_velocity_buffer_);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_buffer_);
+    glBufferData(
+        GL_SHADER_STORAGE_BUFFER, sizeof(VoxelData) * output_buffer.size(), output_buffer.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, volume_buffer_);
     checkGLError;
 
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
@@ -123,8 +117,8 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
         auto const& dzAcc = ps.GetDZAcc();
 
         for (size_t j = 0; j < particles.GetCount(); ++j) {
-            buffer.push_back({glm::vec3(xAcc->Get_f(j), yAcc->Get_f(j), zAcc->Get_f(j)),
-                0.0f, glm::vec3(dxAcc->Get_f(j), dyAcc->Get_f(j), dzAcc->Get_f(j)), 0.0f});
+            buffer.push_back({glm::vec3(xAcc->Get_f(j), yAcc->Get_f(j), zAcc->Get_f(j)), 0.0f,
+                glm::vec3(dxAcc->Get_f(j), dyAcc->Get_f(j), dzAcc->Get_f(j)), 0.0f});
         }
     }
 
@@ -137,14 +131,15 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
 bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) {
     calc_volume_program_->use();
 
+    std::vector<VoxelData> data_buffer(density_.size());
+
     bindInputBuffer(caller);
-    bindOutputBuffers();
+    bindOutputBuffers(data_buffer);
 
     // Clear the output buffers
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
-    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
-    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGB32F, GL_RGB, GL_FLOAT, nullptr);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_buffer_);
+    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
+    checkGLError;
 
     auto const& bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
@@ -154,9 +149,12 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     calc_volume_program_->setUniform("bboxMax", glm::vec3(bbox.Right(), bbox.Top(), bbox.Front()));
     checkGLError;
 
-    calc_volume_program_->setUniform("kernel.type",     static_cast<GLuint>(kernel_type_slot_.Param<core::param::EnumParam>()->Value()));
-    calc_volume_program_->setUniform("kernel.boundary", static_cast<GLuint>(kernel_boundary_slot_.Param<core::param::EnumParam>()->Value()));
-    calc_volume_program_->setUniform("kernel.metric",   static_cast<GLuint>(kernel_metric_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform(
+        "kernel.type", static_cast<GLuint>(kernel_type_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform(
+        "kernel.boundary", static_cast<GLuint>(kernel_boundary_slot_.Param<core::param::EnumParam>()->Value()));
+    calc_volume_program_->setUniform(
+        "kernel.metric", static_cast<GLuint>(kernel_metric_slot_.Param<core::param::EnumParam>()->Value()));
     calc_volume_program_->setUniform("kernel.radius", kernel_radius_slot_.Param<core::param::FloatParam>()->Value());
     checkGLError;
 
@@ -172,11 +170,8 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     glFinish();
 
     // Load the data back from the GPU into RAM
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
-    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * density_.size(), density_.data());
-    checkGLError;
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
-    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * velocity_.size(), velocity_.data());
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_buffer_);
+    glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(VoxelData) * data_buffer.size(), data_buffer.data());
     checkGLError;
 
     // Normalize velocity
