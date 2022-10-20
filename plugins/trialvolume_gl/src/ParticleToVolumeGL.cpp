@@ -50,8 +50,7 @@ bool ParticleToVolumeGL::create(void) {
 
     glGenBuffers(1, &volume_density_buffer_);
     glGenBuffers(1, &volume_velocity_buffer_);
-    glGenBuffers(1, &particle_position_buffer_);
-    glGenBuffers(1, &particle_velocity_buffer_);
+    glGenBuffers(1, &particle_buffer_);
 
     return true;
 }
@@ -60,8 +59,7 @@ void ParticleToVolumeGL::release(void) {
     // TODO release any data here
     glDeleteBuffers(1, &volume_density_buffer_);
     glDeleteBuffers(1, &volume_velocity_buffer_);
-    glDeleteBuffers(1, &particle_position_buffer_);
-    glDeleteBuffers(1, &particle_velocity_buffer_);
+    glDeleteBuffers(1, &particle_buffer_);
 }
 
 std::vector<std::string> ParticleToVolumeGL::requested_lifetime_resources() {
@@ -106,66 +104,34 @@ void ParticleToVolumeGL::bindInputBuffer(geocalls::MultiParticleDataCall* caller
     if (num_particles_ == 0)
         return;
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_position_buffer_);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * num_particles_ * 3, nullptr, GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, particle_position_buffer_);
-    checkGLError;
+    struct ParticleData {
+        glm::vec3 position;
+        GLfloat padding3;
+        glm::vec3 velocity;
+        GLfloat padding7;
+    };
 
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_velocity_buffer_);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * num_particles_ * 3, nullptr, GL_DYNAMIC_COPY);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, particle_velocity_buffer_);
-    checkGLError;
-
-
-    size_t offset = 0;
-    std::vector<float> buffer;
+    std::vector<ParticleData> buffer;
     for (size_t i = 0; i < caller->GetParticleListCount(); ++i) {
         auto const& particles = caller->AccessParticles(i);
+        auto const& ps = particles.GetParticleStore();
+        auto const& xAcc = ps.GetXAcc();
+        auto const& yAcc = ps.GetYAcc();
+        auto const& zAcc = ps.GetZAcc();
+        auto const& dxAcc = ps.GetDXAcc();
+        auto const& dyAcc = ps.GetDYAcc();
+        auto const& dzAcc = ps.GetDZAcc();
 
-        const float* pos_ptr;
-        if (particles.GetVertexDataType() == geocalls::MultiParticleDataCall::Particles::VERTDATA_FLOAT_XYZ) {
-            pos_ptr = static_cast<const float*>(particles.GetVertexData());
-        } else {
-            buffer.resize(particles.GetCount() * 3);
-            pos_ptr = buffer.data();
-            auto const& ps = particles.GetParticleStore();
-            auto const& xAcc = ps.GetXAcc();
-            auto const& yAcc = ps.GetYAcc();
-            auto const& zAcc = ps.GetZAcc();
-            for (size_t j = 0; j < particles.GetCount(); ++j) {
-                buffer[j * 3 + 0] = xAcc->Get_f(j);
-                buffer[j * 3 + 1] = yAcc->Get_f(j);
-                buffer[j * 3 + 2] = zAcc->Get_f(j);
-            }
+        for (size_t j = 0; j < particles.GetCount(); ++j) {
+            buffer.push_back({glm::vec3(xAcc->Get_f(j), yAcc->Get_f(j), zAcc->Get_f(j)),
+                0.0f, glm::vec3(dxAcc->Get_f(j), dyAcc->Get_f(j), dzAcc->Get_f(j)), 0.0f});
         }
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_position_buffer_);
-        checkGLError;
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, pos_ptr);
-        checkGLError;
-
-        const float* vel_ptr;
-        if (particles.GetDirDataType() == geocalls::MultiParticleDataCall::Particles::DIRDATA_FLOAT_XYZ) {
-            vel_ptr = static_cast<const float*>(particles.GetDirData());
-        } else {
-            buffer.resize(particles.GetCount() * 3);
-            vel_ptr = buffer.data();
-            auto const& ps = particles.GetParticleStore();
-            auto const& dxAcc = ps.GetDXAcc();
-            auto const& dyAcc = ps.GetDYAcc();
-            auto const& dzAcc = ps.GetDZAcc();
-            for (size_t j = 0; j < particles.GetCount(); ++j) {
-                buffer[j * 3 + 0] = dxAcc->Get_f(j);
-                buffer[j * 3 + 1] = dyAcc->Get_f(j);
-                buffer[j * 3 + 2] = dzAcc->Get_f(j);
-            }
-        }
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_velocity_buffer_);
-        checkGLError;
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, sizeof(float) * particles.GetCount() * 3, vel_ptr);
-        checkGLError;
-
-        offset += sizeof(float) * particles.GetCount() * 3;
     }
+
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, particle_buffer_);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(ParticleData) * buffer.size(), buffer.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, particle_buffer_);
+    checkGLError;
 }
 
 bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) {
@@ -206,21 +172,6 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     glFinish();
 
     // Load the data back from the GPU into RAM
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
-    // checkGLError;
-    // auto* data = static_cast<float*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY));
-    // checkGLError;
-    // std::memcpy(density_.data(), data, sizeof(float) * density_.size());
-    // glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-    // checkGLError;
-
-    // glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
-    // checkGLError;
-    // data = static_cast<float*>(glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY));
-    // checkGLError;
-    // std::memcpy(velocity_.data(), data, sizeof(float) * velocity_.size());
-    // glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-    // checkGLError;
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * density_.size(), density_.data());
     checkGLError;

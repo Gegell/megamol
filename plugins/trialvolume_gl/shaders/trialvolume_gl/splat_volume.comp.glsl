@@ -1,12 +1,13 @@
 #version 430
 #extension GL_NV_shader_atomic_float : enable
 
-
-layout(std430, binding = 0) buffer inPosition {
-    vec3 partPos[];
+struct Particle {
+    vec3 position;
+    vec3 velocity;
 };
-layout(std430, binding = 1) buffer inVelocity {
-    vec3 partVel[];
+
+layout(std430, binding = 0) buffer SSBO {
+    Particle particles[];
 };
 
 #ifdef GL_NV_shader_atomic_float
@@ -80,20 +81,22 @@ float metricLength(vec3 v) {
 }
 
 void main() {
-    uint workGroupIndex = (gl_WorkGroupID.z * gl_NumWorkGroups.y + gl_WorkGroupID.y) * gl_NumWorkGroups.x + gl_WorkGroupID.x;
-    uint workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
-    uint index = workGroupIndex * workGroupSize + gl_LocalInvocationID.x;
+    // uint workGroupIndex = (gl_WorkGroupID.z * gl_NumWorkGroups.y + gl_WorkGroupID.y) * gl_NumWorkGroups.x + gl_WorkGroupID.x;
+    // uint workGroupSize = gl_WorkGroupSize.x * gl_WorkGroupSize.y * gl_WorkGroupSize.z;
+    // uint index = workGroupIndex * workGroupSize + gl_LocalInvocationIndex;
+    uint index = gl_GlobalInvocationID.x;
 
     if (index >= numParticles) {
         return;
     }
 
-    vec3 pos = partPos[index];
-    vec3 vel = partVel[index];
+    vec3 pos = particles[index].position;
+    vec3 vel = particles[index].velocity;
 
     vec3 cellSize = (bboxMax - bboxMin) / vec3(numCells);
 
-    vec3 cellPos = pos / cellSize;
+    vec3 unitPos = (pos - bboxMin) / (bboxMax - bboxMin);
+    vec3 cellPos = unitPos * vec3(numCells) + 0.5;
     ivec3 cellId = ivec3(floor(cellPos));
     cellPos -= vec3(cellId);
 
@@ -104,58 +107,47 @@ void main() {
     }
 
     float totalWeight = 0.0;
-    // 2 Stages
-    //   1st stage: compute total weight
-    //   2nd stage: compute density and velocity
-    for (int stage = 0; stage < 2; stage++) {
-        ivec3 cellOffset;
-        for (cellOffset.z = -kernelSpan.z; cellOffset.z <= kernelSpan.z; cellOffset.z++) {
-            for (cellOffset.y = -kernelSpan.y; cellOffset.y <= kernelSpan.y; cellOffset.y++) {
-                for (cellOffset.x = -kernelSpan.x; cellOffset.x <= kernelSpan.x; cellOffset.x++) {
-                    vec3 r = (vec3(cellOffset) + 0.5 + cellPos) * cellSize;
+    ivec3 cellOffset;
+    for (cellOffset.z = -kernelSpan.z; cellOffset.z <= kernelSpan.z; cellOffset.z++) {
+        for (cellOffset.y = -kernelSpan.y; cellOffset.y <= kernelSpan.y; cellOffset.y++) {
+            for (cellOffset.x = -kernelSpan.x; cellOffset.x <= kernelSpan.x; cellOffset.x++) {
+                vec3 r = (vec3(cellOffset) + cellPos) * cellSize;
 
-                    float weight = 1.0;
-                    if (kernel.type == 1u) {
-                        // Bump
-                        weight = bumpKernel(metricLength(r), 1.0/kernel.radius);
-                    } else if (kernel.type == 2u) {
-                        // Gaussian
-                        weight = gaussianKernel(metricLength(r), 1.0/kernel.radius);
-                    }
-
-                    if (stage == 0) {
-                        totalWeight += weight;
-                    } else {
-                        ivec3 cellIdOffset = cellId + cellOffset;
-
-                        ivec3 clampedcellIdOffset = clamp(cellIdOffset, ivec3(0), ivec3(numCells) - 1);
-                        if (kernel.boundary == 0u) {
-                            // Clip
-                            if (any(notEqual(clampedcellIdOffset, cellIdOffset))) {
-                                continue;
-                            }
-                        } else if (kernel.boundary == 1u) {
-                            // Clamp
-                            cellIdOffset = clampedcellIdOffset;
-                        } else if (kernel.boundary == 2u) {
-                            // Wrap
-                            cellIdOffset = cellIdOffset % ivec3(numCells);
-                        }
-
-                        uint cellIdOffsetFlat = (cellIdOffset.z * numCells.y + cellIdOffset.y) * numCells.x + cellIdOffset.x;
-
-                        weight /= totalWeight;
-                        #if 1
-                            atomicAddFloat(splatDensity[cellIdOffsetFlat], weight);
-                            atomicAddFloat(splatVelocity[cellIdOffsetFlat].x, weight * vel.x);
-                            atomicAddFloat(splatVelocity[cellIdOffsetFlat].y, weight * vel.y);
-                            atomicAddFloat(splatVelocity[cellIdOffsetFlat].z, weight * vel.z);
-                        #else
-                            splatDensity[cellIdOffsetFlat] = floatBitsToUint(uintBitsToFloat(splatDensity[cellIdOffsetFlat]) + weight);
-                            splatVelocity[cellIdOffsetFlat]=floatBitsToUint(uintBitsToFloat(splatVelocity[cellIdOffsetFlat]) + weight * vel);
-                        #endif
-                    }
+                float weight = 1.0;
+                if (kernel.type == 1u) {
+                    // Bump
+                    weight = bumpKernel(metricLength(r), 1.0/kernel.radius);
+                } else if (kernel.type == 2u) {
+                    // Gaussian
+                    weight = gaussianKernel(metricLength(r), 1.0/kernel.radius);
                 }
+
+                ivec3 cellIdOffset = cellId + cellOffset;
+
+                ivec3 clampedCellIdOffset = clamp(cellIdOffset, ivec3(0), ivec3(numCells) - 1);
+                if (kernel.boundary == 0u) {
+                    // Clip
+                    if (any(notEqual(clampedCellIdOffset, cellIdOffset))) {
+                        continue;
+                    }
+                } else if (kernel.boundary == 1u) {
+                    // Clamp
+                    cellIdOffset = clampedCellIdOffset;
+                } else if (kernel.boundary == 2u) {
+                    // Wrap
+                    cellIdOffset = cellIdOffset % ivec3(numCells);
+                }
+
+                uint cellIdOffsetFlat = (cellIdOffset.z * numCells.y + cellIdOffset.y) * numCells.x + cellIdOffset.x;
+                #if 1
+                    atomicAddFloat(splatDensity[cellIdOffsetFlat], weight);
+                    atomicAddFloat(splatVelocity[cellIdOffsetFlat].x, weight * vel.x);
+                    atomicAddFloat(splatVelocity[cellIdOffsetFlat].y, weight * vel.y);
+                    atomicAddFloat(splatVelocity[cellIdOffsetFlat].z, weight * vel.z);
+                #else
+                    splatDensity[cellIdOffsetFlat] = floatBitsToUint(uintBitsToFloat(splatDensity[cellIdOffsetFlat]) + weight);
+                    splatVelocity[cellIdOffsetFlat]=floatBitsToUint(uintBitsToFloat(splatVelocity[cellIdOffsetFlat]) + weight * vel);
+                #endif
             }
         }
     }
