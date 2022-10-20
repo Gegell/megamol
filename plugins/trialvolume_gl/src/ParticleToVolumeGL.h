@@ -60,8 +60,7 @@ private:
     GLuint volume_density_buffer_;
     GLuint volume_velocity_buffer_;
 
-    GLuint particle_position_buffer_;
-    GLuint particle_velocity_buffer_;
+    GLuint particle_buffer_;
 
     glm::uvec3 buffer_dimensions_;
 
