@@ -179,6 +179,14 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(float) * velocity_.size(), velocity_.data());
     checkGLError;
 
+    // Normalize velocity
+    for (size_t i = 0; i < x_cells_ * y_cells_ * z_cells_; i++) {
+        if (density_[i] > 0.0f) {
+            velocity_[i * 3 + 0] /= density_[i];
+            velocity_[i * 3 + 1] /= density_[i];
+            velocity_[i * 3 + 2] /= density_[i];
+        }
+    }
 
     return true;
 }
