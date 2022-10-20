@@ -176,11 +176,12 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
 
     // Normalize velocity
     for (size_t i = 0; i < x_cells_ * y_cells_ * z_cells_; i++) {
-        if (density_[i] > 0.0f) {
-            velocity_[i * 3 + 0] /= density_[i];
-            velocity_[i * 3 + 1] /= density_[i];
-            velocity_[i * 3 + 2] /= density_[i];
         }
+        auto const& d = data_buffer[i];
+        density_[i] = d.density;
+        velocity_[i] = d.velocity.x / d.density;
+        velocity_[i + 1] = d.velocity.y / d.density;
+        velocity_[i + 2] = d.velocity.z / d.density;
     }
 
     return true;
