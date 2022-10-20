@@ -140,6 +140,12 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     bindInputBuffer(caller);
     bindOutputBuffers();
 
+    // Clear the output buffers
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
+    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
+    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGB32F, GL_RGB, GL_FLOAT, nullptr);
+
     auto const& bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
     calc_volume_program_->setUniform("numCells", buffer_dimensions_);
@@ -153,12 +159,6 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     calc_volume_program_->setUniform("kernel.metric",   static_cast<GLuint>(kernel_metric_slot_.Param<core::param::EnumParam>()->Value()));
     calc_volume_program_->setUniform("kernel.radius", kernel_radius_slot_.Param<core::param::FloatParam>()->Value());
     checkGLError;
-
-    // Clear the output buffers
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_density_buffer_);
-    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_R32F, GL_RED, GL_FLOAT, nullptr);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_velocity_buffer_);
-    glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGB32F, GL_RGB, GL_FLOAT, nullptr);
 
     // Actually start the computation
     // TODO adjust the workgroup size, to not be just 1D

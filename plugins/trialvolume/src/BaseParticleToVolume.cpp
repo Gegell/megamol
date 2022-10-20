@@ -283,10 +283,7 @@ bool trialvolume::BaseParticleToVolume::createVolume(geocalls::MultiParticleData
     z_cells_ = static_cast<size_t>(std::ceil(bbox.Depth() / voxelSideLength));
 
     density_.resize(x_cells_ * y_cells_ * z_cells_);
-    std::fill(density_.begin(), density_.end(), 0.0f);
-
     velocity_.resize(x_cells_ * y_cells_ * z_cells_ * 3);
-    std::fill(velocity_.begin(), velocity_.end(), 0.0f);
 
     if (!computeVolume(caller)) {
         Log::DefaultLog.WriteError("%s: could not create volume", ClassName());

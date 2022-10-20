@@ -35,6 +35,9 @@ trialvolume::ParticleToVolume::~ParticleToVolume(void) {
 }
 
 bool trialvolume::ParticleToVolume::computeVolume(geocalls::MultiParticleDataCall* caller) {
+    std::fill(density_.begin(), density_.end(), 0.0f);
+    std::fill(velocity_.begin(), velocity_.end(), 0.0f);
+
     switch (splatting_method_slot_.Param<core::param::EnumParam>()->Value()) {
     case trialvolume::ParticleToVolume::SPLAT_METHOD_KERNEL:
         return computeKernel(caller);
