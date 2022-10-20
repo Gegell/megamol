@@ -134,13 +134,19 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
 
     std::vector<VoxelData> data_buffer(density_.size());
 
+    auto const start = std::chrono::high_resolution_clock::now();
+
     bindInputBuffer(caller);
     bindOutputBuffers(data_buffer);
+
+    auto const bindTime = std::chrono::high_resolution_clock::now();
 
     // Clear the output buffers
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_buffer_);
     glClearBufferData(GL_SHADER_STORAGE_BUFFER, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr);
     checkGLError;
+
+    auto const clearTime = std::chrono::high_resolution_clock::now();
 
     auto const& bbox = caller->AccessBoundingBoxes().ObjectSpaceBBox();
 
@@ -170,10 +176,13 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     checkGLError;
     glFinish();
 
+    auto const endTime = std::chrono::high_resolution_clock::now();
+
     // Load the data back from the GPU into RAM
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, volume_buffer_);
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(VoxelData) * data_buffer.size(), data_buffer.data());
     checkGLError;
+    auto const readTime = std::chrono::high_resolution_clock::now();
 
 #pragma omp parallel for
     for (auto i = 0; i < data_buffer.size(); ++i) {
@@ -183,6 +192,22 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
         velocity_[i + 1] = d.velocity.y / d.density;
         velocity_[i + 2] = d.velocity.z / d.density;
     }
+
+    auto const normalizeTime = std::chrono::high_resolution_clock::now();
+
+    // Print some timing information
+#if TRIALVOLUME_VERBOSE
+    Log::DefaultLog.WriteInfo("ParticleToVolumeGL: Bind time: %f ms",
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(bindTime - start).count());
+    Log::DefaultLog.WriteInfo("ParticleToVolumeGL: Clear time: %f ms",
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(clearTime - bindTime).count());
+    Log::DefaultLog.WriteInfo("ParticleToVolumeGL: Compute time: %f ms",
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(endTime - clearTime).count());
+    Log::DefaultLog.WriteInfo("ParticleToVolumeGL: Read time: %f ms",
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(readTime - endTime).count());
+    Log::DefaultLog.WriteInfo("ParticleToVolumeGL: Normalize time: %f ms",
+        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(normalizeTime - readTime).count());
+#endif
 
     return true;
 }
