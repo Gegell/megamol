@@ -8,6 +8,7 @@
 
 #include <GL/glu.h>
 #include <glowl/glowl.h>
+#include <omp.h>
 
 using namespace megamol::trialvolume_gl;
 using megamol::core::utility::log::Log;
@@ -174,9 +175,8 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
     glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, 0, sizeof(VoxelData) * data_buffer.size(), data_buffer.data());
     checkGLError;
 
-    // Normalize velocity
-    for (size_t i = 0; i < x_cells_ * y_cells_ * z_cells_; i++) {
-        }
+#pragma omp parallel for
+    for (auto i = 0; i < data_buffer.size(); ++i) {
         auto const& d = data_buffer[i];
         density_[i] = d.density;
         velocity_[i] = d.velocity.x / d.density;
