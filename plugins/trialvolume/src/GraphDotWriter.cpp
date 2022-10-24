@@ -9,12 +9,18 @@
 using namespace megamol::trialvolume;
 
 GraphDotWriter::GraphDotWriter()
-        : graph_slot_("in_graph", "The graph to write")
+        : graph_query_slot_("in_graph", "The graph to write")
+        , graph_receiving_slot_("receive_graph", "The graph to write")
         , filename_slot_("filename", "The filename to write to")
         , write_button_slot_("write_button", "The button to write the graph") {
     // Initialize the input graph slot
-    graph_slot_.SetCompatibleCall<GraphCall::graph_description>();
-    MakeSlotAvailable(&graph_slot_);
+    graph_query_slot_.SetCompatibleCall<GraphCall::graph_description>();
+    MakeSlotAvailable(&graph_query_slot_);
+
+    // Initialize the receiving graph slot
+    graph_receiving_slot_.SetCallback(
+        GraphCall::ClassName(), GraphCall::FunctionName(0), &GraphDotWriter::getDataCallback);
+    MakeSlotAvailable(&graph_receiving_slot_);
 
     // Initialize the filename slot
     filename_slot_ << new core::param::FilePathParam("", core::param::FilePathParam::Flag_File_ToBeCreated);
@@ -33,12 +39,8 @@ bool GraphDotWriter::create() {
 void GraphDotWriter::release() {}
 
 bool GraphDotWriter::writeButtonCallback(core::param::ParamSlot& slot) {
-    return writeDotFile();
-}
-
-bool GraphDotWriter::writeDotFile() {
     // Get the graph data
-    auto* graph_call = graph_slot_.CallAs<GraphCall>();
+    auto* graph_call = graph_query_slot_.CallAs<GraphCall>();
     if (graph_call == nullptr) {
         core::utility::log::Log::DefaultLog.WriteError("GraphDotWriter: No graph call connected to in_graph slot.");
         return false;
@@ -49,6 +51,18 @@ bool GraphDotWriter::writeDotFile() {
         return false;
     }
 
+    return writeDotFile(graph_call);
+}
+
+bool GraphDotWriter::getDataCallback(core::Call& call) {
+    auto* graph_call = dynamic_cast<GraphCall*>(&call);
+    if (graph_call == nullptr)
+        return false;
+
+    return writeDotFile(graph_call);
+}
+
+bool GraphDotWriter::writeDotFile(GraphCall* graph_call) {
     // Open the file
     auto filename = filename_slot_.Param<core::param::FilePathParam>()->Value();
     if (filename.empty()) {
@@ -64,19 +78,9 @@ bool GraphDotWriter::writeDotFile() {
         return false;
     }
 
-    // Write the graph
-    dot_file << "digraph G {" << std::endl;
+    // Write the graph to the file
+    auto const& graph = graph_call->GetGraph();
+    graph->writeDot(dot_file);
 
-    // Write the nodes
-    for (auto& node : *graph_call->GetNodes()) {
-        dot_file << node.ToDot() << std::endl;
-    }
-
-    // Write the edges
-    for (auto& edge : *graph_call->GetEdges()) {
-        dot_file << edge.ToDot() << std::endl;
-    }
-
-    dot_file << "}" << std::endl;
     return true;
 }

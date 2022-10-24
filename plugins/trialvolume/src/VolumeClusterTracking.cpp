@@ -1,5 +1,8 @@
 #include "trialvolume/VolumeClusterTracking.h"
 
+#include "trialvolume/GraphCall.h"
+#include "trialvolume/TrackingData.h"
+
 #include "geometry_calls/MultiParticleDataCall.h"
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/param/BoolParam.h"
@@ -24,9 +27,7 @@ VolumeClusterTracking::VolumeClusterTracking()
         , frame_range_limit_param_("frame::limit_range", "Limit the frame range in which to track the clusters")
         , frame_start_param_("frame::start", "The first frame to track")
         , frame_end_param_("frame::end", "The last frame to track")
-        , frame_step_param_("frame::step", "The step size for the frame range")
-        , dot_file_name_("dot_file_name", "The file name for the .dot file")
-        , tsv_directory_("tsv_directory", "The directory for the .tsv files") {
+        , frame_step_param_("frame::step", "The step size for the frame range") {
     // Setup the input slots
     in_cluster_id_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_cluster_id_slot_);
@@ -34,13 +35,14 @@ VolumeClusterTracking::VolumeClusterTracking()
     in_velocity_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_velocity_slot_);
 
-    // HACK: This is a hack to get the timestamp data from the VolumeDataCall,
+    // HACK: This is a hack to get the timestamp data from the MultiParticleDataCall,
     // since the VolumetricDataCall does not support timestamp data yet.
     in_timestamp_slot_.SetCompatibleCall<geocalls::MultiParticleDataCallDescription>();
     MakeSlotAvailable(&in_timestamp_slot_);
 
     // Setup the output slots
-    // TODO: This needs to be its own call transporting the graph data
+    out_cluster_track_slot_.SetCompatibleCall<GraphCallDescription>();
+    MakeSlotAvailable(&out_cluster_track_slot_);
 
     // Setup the minimum connection mass
     min_connection_count_.SetParameter(new core::param::FloatParam(1, 0));
@@ -59,16 +61,6 @@ VolumeClusterTracking::VolumeClusterTracking()
     MakeSlotAvailable(&frame_start_param_);
     MakeSlotAvailable(&frame_end_param_);
     MakeSlotAvailable(&frame_step_param_);
-
-    // Setup the dot file name
-    dot_file_name_.SetParameter(
-        new core::param::FilePathParam("out.dot", core::param::FilePathParam::Flag_File_ToBeCreated));
-    MakeSlotAvailable(&dot_file_name_);
-
-    // Setup the tsv directory
-    tsv_directory_.SetParameter(
-        new core::param::FilePathParam("out.graph", core::param::FilePathParam::Flag_Directory_ToBeCreated));
-    MakeSlotAvailable(&tsv_directory_);
 
     // Setup manual start button
     start_button_.SetParameter(new core::param::ButtonParam());
@@ -96,7 +88,7 @@ bool VolumeClusterTracking::getExtentCallback(core::Call& call) {
 
 bool VolumeClusterTracking::buttonCallback(core::param::ParamSlot& slot) {
     computeTracks();
-    generateDotFile();
+    // generateDotFile();
     return true;
 }
 
@@ -119,6 +111,14 @@ void VolumeClusterTracking::computeTracks() {
     if (!has_timestamp_data) {
         core::utility::log::Log::DefaultLog.WriteWarn("[VolumeClusterTracking] No timestamp data available.");
     }
+
+    auto const cluster_track_call = out_cluster_track_slot_.CallAs<GraphCall>();
+    if (cluster_track_call == nullptr) {
+        core::utility::log::Log::DefaultLog.WriteWarn(
+            "[VolumeClusterTracking] No continuous saving available, connect a "
+            "GraphCall writer to the rhs.");
+    }
+
 
     // Capture the frame range by calling  the extents call
     cluster_id_call->SetFrameID(0, true);
@@ -217,12 +217,20 @@ void VolumeClusterTracking::computeTracks() {
     }
 
     // First reset the current tracks
-    cluster_metadata_.clear();
+    graph_data_.edges_.clear();
+    graph_data_.nodes_.clear();
+    graph_data_.frames_.clear();
+
+    struct Cluster_t {
+        ClusterInfo node;
+        std::map<size_t, size_t> parents;
+    };
 
     auto const index_extent = cluster_id_resolution[0] * cluster_id_resolution[1] * cluster_id_resolution[2];
     std::vector<size_t> prev_cluster_ids(index_extent, 0);
-    std::vector<ClusterMetadata_t> prev_cluster_list;
+    std::vector<Cluster_t> prev_cluster_list;
     float prev_timestamp;
+    std::vector<float> prev_timestamps;
 
     // Iterate over every time step t
     for (auto t = frame_start; t <= frame_end; t += frame_step) {
@@ -291,10 +299,13 @@ void VolumeClusterTracking::computeTracks() {
         auto const cluster_count = static_cast<size_t>(cluster_id_call->GetMetadata()->MaxValues[0]);
 
         // 2. Reserve the amount of new clusters we have in the current time step
-        auto& current_cluster_list = cluster_metadata_.emplace_back(cluster_count);
+        std::vector<Cluster_t> current_cluster_list(cluster_count);
         for (auto i = 0; i < cluster_count; i++) {
-            current_cluster_list[i].local_time_cluster_id = i;
-            current_cluster_list[i].frame_id = t;
+            auto& node = current_cluster_list[i].node;
+            node.frame_local_id = i;
+            node.frame = t;
+            node.id =
+                (static_cast<uint64_t>(i) & std::numeric_limits<uint32_t>::max()) | (static_cast<uint64_t>(t) << 32);
         }
 
         auto const vel_ptr = static_cast<float*>(velocity_call->GetData());
@@ -320,16 +331,16 @@ void VolumeClusterTracking::computeTracks() {
                     auto const cell_pos =
                         vislib::math::Vector<float, 3>(grid_points[0][x], grid_points[1][y], grid_points[2][z]);
 
-                    if (current_cluster.total_mass == 0) {
-                        current_cluster.bounding_box.Set(
+                    if (current_cluster.node.total_mass == 0) {
+                        current_cluster.node.bounding_box.Set(
                             cell_pos.X(), cell_pos.Y(), cell_pos.Z(), cell_pos.X(), cell_pos.Y(), cell_pos.Z());
                     } else {
-                        current_cluster.bounding_box.GrowToPoint(cell_pos.X(), cell_pos.Y(), cell_pos.Z());
+                        current_cluster.node.bounding_box.GrowToPoint(cell_pos.X(), cell_pos.Y(), cell_pos.Z());
                     }
 
-                    current_cluster.center_of_mass += cell_pos;
-                    current_cluster.velocity += vislib::math::Vector<float, 3>(x_vel, y_vel, z_vel);
-                    current_cluster.total_mass += 1.0f; // TODO: Use density instead of 1.0f
+                    current_cluster.node.center_of_mass += cell_pos;
+                    current_cluster.node.velocity += vislib::math::Vector<float, 3>(x_vel, y_vel, z_vel);
+                    current_cluster.node.total_mass += 1.0f; // TODO: Use density instead of 1.0f
 
                     if (t == frame_start) {
                         continue;
@@ -373,10 +384,10 @@ void VolumeClusterTracking::computeTracks() {
 
         // 4. Normalize the center of mass and velocity
         for (auto& cluster : current_cluster_list) {
-            cluster.center_of_mass /= cluster.total_mass;
+            cluster.node.center_of_mass /= cluster.node.total_mass;
             auto const origin = cluster_id_call->GetMetadata()->Origin;
-            cluster.center_of_mass += vislib::math::Vector<float, 3>(origin[0], origin[1], origin[2]);
-            cluster.velocity /= cluster.total_mass;
+            cluster.node.center_of_mass += vislib::math::Vector<float, 3>(origin[0], origin[1], origin[2]);
+            cluster.node.velocity /= cluster.node.total_mass;
         }
 
         // 5. Copy the next cluster ids to the current cluster ids
@@ -394,118 +405,29 @@ void VolumeClusterTracking::computeTracks() {
         core::utility::log::Log::DefaultLog.WriteInfo(
             "[VolumeClusterTracking] Frame %u: %u clusters", t, cluster_count);
 
-        // 7. Write the cluster data to the output file
-        generateDotFile(true);
-        generateTsvFiles(true);
-    }
-}
-
-
-bool VolumeClusterTracking::generateDotFile(bool silent) {
-    auto filename = dot_file_name_.Param<core::param::FilePathParam>()->Value();
-    if (filename.empty()) {
-        if (!silent) {
-            megamol::core::utility::log::Log::DefaultLog.WriteError(
-                "[ParticleClusterTracking] No filename specified for dot file.");
-        }
-        return false;
-    }
-    std::ofstream dot_file(filename.generic_u8string().c_str());
-    dot_file << "digraph G {" << std::endl;
-
-    // Write all the time steps
-    dot_file << "graph [__timesteps=\"";
-    for (auto t : frame_timesteps_) {
-        dot_file << t << ",";
-    }
-    dot_file << "\"];" << std::endl;
-
-    // Iterate over all time steps
-    for (size_t t = 0; t < cluster_metadata_.size(); t++) {
-        auto& cluster_list = cluster_metadata_[t];
-        // Iterate over all clusters in the current time step
-        for (auto& cluster : cluster_list) {
-            // Iterate over all parents of the current cluster and write the edges
-            // connecting the current cluster to the previous time steps clusters
-            for (auto& p : cluster.parents) {
-                // Discard clusters with too few connections
-                if (p.second < min_connection_count_.Param<core::param::FloatParam>()->Value()) {
-                    continue;
-                }
-                auto parent_cluster = cluster_metadata_[t - 1][p.first];
-                dot_file << "\"" << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\"";
-                dot_file << " -> ";
-                dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
-                dot_file << " [label=\"" << p.second << "\", __kept=" << p.second << "];" << std::endl;
-            }
-            // Output the current cluster as a node
-            dot_file << "\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\"";
-            dot_file << " [label=\"" << cluster.frame_id << "_" << cluster.local_time_cluster_id << " ("
-                     << cluster.total_mass << ")\", __bounds=\"[" << cluster.bounding_box.Left() << ","
-                     << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
-                     << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
-                     << cluster.bounding_box.Front() << "]\""
-                     << ", __center_of_mass=\"[" << cluster.center_of_mass.X() << "," << cluster.center_of_mass.Y()
-                     << "," << cluster.center_of_mass.Z() << "]\""
-                     << ", __velocity=\"[" << cluster.velocity.X() << "," << cluster.velocity.Y() << ","
-                     << cluster.velocity.Z() << "]\""
-                     << ", __frame=" << cluster.frame_id << ", __local_id=" << cluster.local_time_cluster_id
-                     << ", __total_mass=" << cluster.total_mass << "];" << std::endl;
-        }
-    }
-    dot_file << "}" << std::endl;
-    return true;
-}
-
-bool VolumeClusterTracking::generateTsvFiles(bool silent) {
-    auto dirname = tsv_directory_.Param<core::param::FilePathParam>()->Value();
-    if (dirname.empty()) {
-        if (!silent) {
-            megamol::core::utility::log::Log::DefaultLog.WriteError(
-                "[ParticleClusterTracking] No directory specified for tsv files.");
-        }
-        return false;
-    }
-
-    if (!std::filesystem::exists(dirname)) {
-        std::filesystem::create_directories(dirname);
-    }
-
-    std::ofstream clusters_file((dirname / "nodes.tsv").generic_u8string().c_str());
-    std::ofstream connections_file((dirname / "edges.tsv").generic_u8string().c_str());
-    std::ofstream timesteps_file((dirname / "timesteps.tsv").generic_u8string().c_str());
-
-    // Write the header for the clusters file
-    clusters_file << "graph_id\tframe_id\tlocal_id\ttotal_mass\tcenter_of_mass\tvelocity\tbbox" << std::endl;
-    connections_file << "from\tto\tkept" << std::endl;
-    timesteps_file << "frame_id\ttimestamp" << std::endl;
-    // Iterate over all time steps
-    for (size_t t = 0; t < cluster_metadata_.size(); t++) {
-        auto& cluster_list = cluster_metadata_[t];
-        // Iterate over all clusters in the current time step
-        for (auto& cluster : cluster_list) {
-            clusters_file << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\t" << cluster.frame_id
-                          << "\t" << cluster.local_time_cluster_id << "\t" << cluster.total_mass << "\t"
-                          << cluster.center_of_mass.X() << "," << cluster.center_of_mass.Y() << ","
-                          << cluster.center_of_mass.Z() << "\t" << cluster.velocity.X() << "," << cluster.velocity.Y()
-                          << "," << cluster.velocity.Z() << "\t" << cluster.bounding_box.Left() << ","
-                          << cluster.bounding_box.Bottom() << "," << cluster.bounding_box.Back() << ","
-                          << cluster.bounding_box.Right() << "," << cluster.bounding_box.Top() << ","
-                          << cluster.bounding_box.Front() << std::endl;
-            // Iterate over all parents of the current cluster and write the edges
-            // connecting the current cluster to the previous time steps clusters
-            for (auto& p : cluster.parents) {
-                // Discard clusters with too few connections
-                if (p.second < min_connection_count_.Param<core::param::FloatParam>()->Value()) {
-                    continue;
-                }
-                auto parent_cluster = cluster_metadata_[t - 1][p.first];
-                connections_file << parent_cluster.frame_id << "_" << parent_cluster.local_time_cluster_id << "\t"
-                                 << cluster.frame_id << "_" << cluster.local_time_cluster_id << "\t" << p.second
-                                 << std::endl;
+        // 7. Add the cluster list to the graph
+        for (auto& cluster : current_cluster_list) {
+            graph_data_.nodes_.push_back(std::make_shared<ClusterInfo>(cluster.node));
+            for (auto const& [parent_idx, overlap] : cluster.parents) {
+                // TODO fix the parents, etc.
+                ClusterConnection edge;
+                edge.source = std::make_shared<ClusterInfo>(prev_cluster_list[parent_idx].node);
+                edge.target = std::make_shared<ClusterInfo>(cluster.node);
+                edge.kept = overlap;
+                graph_data_.edges_.push_back(std::make_shared<ClusterConnection>(edge));
             }
         }
-        timesteps_file << t << "\t" << frame_timesteps_[t] << std::endl;
+        graph_data_.frames_.push_back(ClusterGraph::frame_info_t{t, curr_timestamp});
+
+        // 8. Write the cluster data to the output file
+        if (cluster_track_call != nullptr) {
+            cluster_track_call->SetGraph(std::make_shared<ClusterGraph>(graph_data_));
+            if (!(*cluster_track_call)(0)) {
+                megamol::core::utility::log::Log::DefaultLog.WriteError(
+                    "[VolumeClusterTracking] Unable to write cluster tracks to output file.");
+            }
+        }
+
+        prev_cluster_list = current_cluster_list;
     }
-    return true;
 }

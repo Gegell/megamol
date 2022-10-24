@@ -1,5 +1,7 @@
 #pragma once
 
+#include "trialvolume/TrackingData.h"
+
 #include "geometry_calls/VolumetricDataCall.h"
 #include "mmcore/CalleeSlot.h"
 #include "mmcore/CallerSlot.h"
@@ -11,18 +13,6 @@ namespace megamol::trialvolume {
 class VolumeClusterTracking : public core::Module {
 
 public:
-    /** Store general information of the clusters */
-    struct ClusterMetadata_t {
-        unsigned int local_time_cluster_id;
-        unsigned int frame_id;
-        std::map<size_t, size_t> parents;
-        float total_mass;
-
-        vislib::math::Cuboid<float> bounding_box;
-        vislib::math::Vector<float, 3> center_of_mass;
-        vislib::math::Vector<float, 3> velocity;
-    };
-
     /** Answer the name of the objects of this description. */
     static const char* ClassName() {
         return "VolumeClusterTracking";
@@ -72,13 +62,13 @@ private:
     void computeTracks();
 
     /** Generate a corresponding .dot file for the current tracks */
-    bool generateDotFile(bool silent=false);
+    // bool generateDotFile(bool silent=false);
 
     /** Generate the corresponding .tsv files for the current tracks */
-    bool generateTsvFiles(bool silent=false);
+    // bool generateTsvFiles(bool silent=false);
 
     /** The slot for the cluster track call */
-    core::CalleeSlot out_cluster_track_slot_;
+    core::CallerSlot out_cluster_track_slot_;
 
     /** The slot for the volume cluster id call */
     core::CallerSlot in_cluster_id_slot_;
@@ -104,14 +94,8 @@ private:
     core::param::ParamSlot frame_step_param_;
     core::param::ParamSlot frame_range_limit_param_;
 
-    /** The file name for the .dot file */
-    core::param::ParamSlot dot_file_name_;
-
-    /** The name for the .tsv directory */
-    core::param::ParamSlot tsv_directory_;
-
     /** Store the cluster metadata for each frame */
-    std::vector<std::vector<ClusterMetadata_t>> cluster_metadata_;
+    ClusterGraph graph_data_;
 
     /** Store the timestep of every frame */
     std::vector<float> frame_timesteps_;

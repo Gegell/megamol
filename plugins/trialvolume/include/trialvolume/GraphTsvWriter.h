@@ -8,7 +8,7 @@
 
 namespace megamol::trialvolume {
 
-class GraphDotWriter : public core::Module {
+class GraphTsvWriter : public core::Module {
 public:
     /**
      * Answer the name of this module.
@@ -16,7 +16,7 @@ public:
      * @return The name of this module.
      */
     static const char* ClassName() {
-        return "GraphDotWriter";
+        return "GraphTsvWriter";
     }
 
     /**
@@ -25,7 +25,7 @@ public:
      * @return A human readable description of this module.
      */
     static const char* Description() {
-        return "Writes a graph to a dot file.";
+        return "Writes a graph to a collection of tsv files.";
     }
 
     /**
@@ -38,10 +38,10 @@ public:
     }
 
     /** Ctor. */
-    GraphDotWriter();
+    GraphTsvWriter();
 
     /** Dtor. */
-    ~GraphDotWriter() override = default;
+    ~GraphTsvWriter() override = default;
 
 protected:
     bool create() override;
@@ -63,11 +63,11 @@ protected:
      */
     bool getDataCallback(core::Call& call);
 
-    /** Writes the dot file
+    /** Writes the tsv files
      *
      * @return true if the write was successful
      */
-    bool writeDotFile(GraphCall* graph_call);
+    bool writeTsvFiles(GraphCall* graph_call);
 
 private:
     /** The slot asking for data. */

@@ -7,6 +7,7 @@
 #include "trialvolume/DualContouring.h"
 #include "trialvolume/GraphCall.h"
 #include "trialvolume/GraphDotWriter.h"
+#include "trialvolume/GraphTsvWriter.h"
 #include "trialvolume/IdentityToICol.h"
 #include "trialvolume/MeshSegmentation.h"
 #include "trialvolume/MeshSegmentationCall.h"
@@ -48,6 +49,7 @@ public:
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::SegmentationAnalysis>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::VolumeClusterTracking>();
         module_descriptions.RegisterAutoDescription<megamol::trialvolume::GraphDotWriter>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume::GraphTsvWriter>();
 
         // register calls
         call_descriptions.RegisterAutoDescription<megamol::trialvolume::MeshSegmentationCall>();

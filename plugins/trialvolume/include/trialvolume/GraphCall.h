@@ -1,31 +1,9 @@
 #pragma once
 
 #include "mmstd/data/AbstractGetDataCall.h"
+#include "trialvolume/GraphData.h"
 
 namespace megamol::trialvolume {
-
-class AbstractNodeData {
-public:
-    size_t id;
-
-    virtual ~AbstractNodeData() = default;
-
-    virtual std::string ToDot() const {
-        return std::to_string(id);
-    };
-};
-
-class AbstractEdgeData {
-public:
-    std::shared_ptr<AbstractNodeData> source;
-    std::shared_ptr<AbstractNodeData> target;
-
-    virtual ~AbstractEdgeData() = default;
-
-    virtual std::string ToDot() const {
-        return std::to_string(source->id) + " -> " + std::to_string(target->id);
-    };
-};
 
 class GraphCall : public core::AbstractGetDataCall {
 public:
@@ -56,21 +34,18 @@ public:
         }
     }
 
-    /** Get nodes */
-    std::shared_ptr<std::vector<AbstractNodeData>> GetNodes() const;
+    /** Get graph */
+    std::shared_ptr<GraphData> GetGraph() const;
 
-    /** Set nodes */
-    void SetNodes(const std::shared_ptr<std::vector<AbstractNodeData>>& nodes);
-
-    /** Get edges */
-    std::shared_ptr<std::vector<AbstractEdgeData>> GetEdges() const;
-
-    /** Set edges */
-    void SetEdges(const std::shared_ptr<std::vector<AbstractEdgeData>>& edges);
+    /** Set graph */
+    void SetGraph(const std::shared_ptr<GraphData>& graph);
 
 private:
-    std::shared_ptr<std::vector<AbstractNodeData>> nodes_;
-    std::shared_ptr<std::vector<AbstractEdgeData>> edges_;
+    std::shared_ptr<GraphData> graph_;
 };
+
+
+/** Description class typedef */
+typedef core::factories::CallAutoDescription<GraphCall> GraphCallDescription;
 
 } // namespace megamol::trialvolume
