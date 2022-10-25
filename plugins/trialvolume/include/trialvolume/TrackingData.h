@@ -31,6 +31,10 @@ public:
            << bounding_box.Front();
     }
 
+    std::string getId() const override {
+        return std::to_string(frame) + "_" + std::to_string(frame_local_id);
+    }
+
     float total_mass;
 
     vislib::math::Cuboid<float> bounding_box;

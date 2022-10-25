@@ -29,14 +29,18 @@ public:
 
     virtual ~AbstractNodeData() = default;
 
+    virtual std::string getId() const {
+        return std::to_string(id);
+    }
+
     virtual void writeDot(std::ostream& os) const {
-        os << id << " [";
+        os << getId() << " [";
         writeDotAttributes(os);
         os << "];";
     };
 
     virtual void writeTsv(std::ostream& os) const {
-        os << id;
+        os << getId();
     };
 
     virtual void writeTsvHeaders(std::ostream& os) const {
@@ -52,13 +56,13 @@ public:
     virtual ~AbstractEdgeData() = default;
 
     virtual void writeDot(std::ostream& os) const {
-        os << source->id << " -> " << target->id << " [";
+        os << source->getId() << " -> " << target->getId() << " [";
         writeDotAttributes(os);
         os << "];";
     };
 
     virtual void writeTsv(std::ostream& os) const {
-        os << source->id << "\t" << target->id;
+        os << source->getId() << "\t" << target->getId();
     };
 
     virtual void writeTsvHeaders(std::ostream& os) const {
