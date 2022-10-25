@@ -85,7 +85,10 @@ bool VolumeClusterTracking::getDataCallback(core::Call& call) {
     if (gdc == nullptr)
         return false;
 
-    computeTracks();
+    if (gdc->DataHash() != hash_) {
+        computeTracks();
+        gdc->SetDataHash(hash_);
+    }
     gdc->SetGraph(std::make_shared<ClusterGraph>(graph_data_));
     return true;
 }
@@ -428,9 +431,13 @@ void VolumeClusterTracking::computeTracks() {
         }
         graph_data_.frames_.push_back(ClusterGraph::frame_info_t{t, curr_timestamp});
 
+        // Update the data hash after a successful computation
+        hash_++;
+
         // 8. Write the cluster data to the output file
         if (cluster_track_call != nullptr) {
             cluster_track_call->SetGraph(std::make_shared<ClusterGraph>(graph_data_));
+            cluster_track_call->SetDataHash(hash_);
             if (!(*cluster_track_call)(0)) {
                 megamol::core::utility::log::Log::DefaultLog.WriteError(
                     "[VolumeClusterTracking] Unable to write cluster tracks to output file.");
