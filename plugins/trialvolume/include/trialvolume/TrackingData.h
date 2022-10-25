@@ -4,6 +4,9 @@
 #include "vislib/math/Cuboid.h"
 #include "vislib/math/Vector.h"
 
+#include <string>
+#include <vector>
+
 namespace megamol::trialvolume {
 
 class ClusterInfo : public AbstractNodeData {

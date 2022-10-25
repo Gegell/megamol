@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 
 namespace megamol::trialvolume {
 
