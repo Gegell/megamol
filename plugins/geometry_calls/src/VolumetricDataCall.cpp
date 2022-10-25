@@ -216,8 +216,8 @@ const float VolumetricDataCall::GetRelativeVoxelValue(
 
     float theVal = 0.0f;
 
-    if (!this->metadata->IsUniform || !this->metadata->GridType == GridType::CARTESIAN ||
-        !this->metadata->GridType == GridType::RECTILINEAR) {
+    if (!this->metadata->IsUniform || !(this->metadata->GridType == GridType::CARTESIAN ||
+        this->metadata->GridType == GridType::RECTILINEAR)) {
         megamol::core::utility::log::Log::DefaultLog.WriteError("GetRelativeVoxelValue: unsupported grid!");
 
     } else {
@@ -260,8 +260,8 @@ const float VolumetricDataCall::GetAbsoluteVoxelValue(
 
     float theVal = 0.0f;
 
-    if (!this->metadata->IsUniform || !this->metadata->GridType == GridType::CARTESIAN ||
-        !this->metadata->GridType == GridType::RECTILINEAR) {
+    if (!this->metadata->IsUniform || !(this->metadata->GridType == GridType::CARTESIAN ||
+        this->metadata->GridType == GridType::RECTILINEAR)) {
         megamol::core::utility::log::Log::DefaultLog.WriteError("GetAbsoluteVoxelValue: unsupported grid!");
 
     } else {
