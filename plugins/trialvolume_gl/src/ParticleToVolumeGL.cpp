@@ -189,9 +189,9 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
         auto const& d = data_buffer[i];
         auto const avg_vel = d.density > 0.0f ? d.velocity / d.density : glm::vec3(0.0f);
         density_[i] = d.density;
-        velocity_[i] = avg_vel.x;
-        velocity_[i + 1] = avg_vel.y;
-        velocity_[i + 2] = avg_vel.z;
+        velocity_[i * 3 + 0] = avg_vel.x;
+        velocity_[i * 3 + 1] = avg_vel.y;
+        velocity_[i * 3 + 2] = avg_vel.z;
     }
 
     auto const normalizeTime = std::chrono::high_resolution_clock::now();
