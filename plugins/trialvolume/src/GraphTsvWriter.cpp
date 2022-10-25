@@ -39,6 +39,9 @@ bool GraphTsvWriter::create() {
 void GraphTsvWriter::release() {}
 
 bool GraphTsvWriter::writeButtonCallback(core::param::ParamSlot& slot) {
+    // Unmark the button as dirty
+    slot.ResetDirty();
+
     // Get the graph data
     auto* graph_call = graph_query_slot_.CallAs<GraphCall>();
     if (graph_call == nullptr) {
