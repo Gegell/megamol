@@ -88,7 +88,7 @@ bool GraphTsvWriter::writeTsvFiles(GraphCall* graph_call) {
         return true;
     } else {
         nodes.at(0)->writeTsvHeaders(clusters_file);
-        connections_file << std::endl;
+        clusters_file << std::endl;
         for (auto const& node : nodes) {
             node->writeTsv(clusters_file);
             clusters_file << std::endl;
