@@ -20,7 +20,8 @@ VolumeClusterTracking::VolumeClusterTracking()
         : in_cluster_id_slot_("in_cluster_id", "The cluster id data")
         , in_velocity_slot_("in_velocity", "The velocity data")
         , in_timestamp_slot_("in_timestamp", "The timestamp data")
-        , out_cluster_track_slot_("out_cluster_id", "The cluster tracking data")
+        , out_push_cluster_track_slot_("out_cluster_id_push", "The cluster tracking data")
+        , out_poll_cluster_track_slot_("out_cluster_id_poll", "The cluster tracking data")
         , start_button_("start", "Start tracking")
         , time_step_size_("time_step_size", "The time step size")
         , min_connection_count_("min_connection_count", "The minimum amount of mass needed to form a connection.")
@@ -41,8 +42,11 @@ VolumeClusterTracking::VolumeClusterTracking()
     MakeSlotAvailable(&in_timestamp_slot_);
 
     // Setup the output slots
-    out_cluster_track_slot_.SetCompatibleCall<GraphCallDescription>();
-    MakeSlotAvailable(&out_cluster_track_slot_);
+    out_push_cluster_track_slot_.SetCompatibleCall<GraphCallDescription>();
+    MakeSlotAvailable(&out_push_cluster_track_slot_);
+    out_poll_cluster_track_slot_.SetCallback(
+        GraphCall::ClassName(), GraphCall::FunctionName(0), &VolumeClusterTracking::getDataCallback);
+    MakeSlotAvailable(&out_poll_cluster_track_slot_);
 
     // Setup the minimum connection mass
     min_connection_count_.SetParameter(new core::param::FloatParam(1, 0));
@@ -77,7 +81,12 @@ bool VolumeClusterTracking::create() {
 void VolumeClusterTracking::release() {}
 
 bool VolumeClusterTracking::getDataCallback(core::Call& call) {
-    assert(false); // TODO: Implement this
+    GraphCall* gdc = dynamic_cast<GraphCall*>(&call);
+    if (gdc == nullptr)
+        return false;
+
+    computeTracks();
+    gdc->SetGraph(std::make_shared<ClusterGraph>(graph_data_));
     return true;
 }
 
@@ -112,7 +121,7 @@ void VolumeClusterTracking::computeTracks() {
         core::utility::log::Log::DefaultLog.WriteWarn("[VolumeClusterTracking] No timestamp data available.");
     }
 
-    auto const cluster_track_call = out_cluster_track_slot_.CallAs<GraphCall>();
+    auto const cluster_track_call = out_push_cluster_track_slot_.CallAs<GraphCall>();
     if (cluster_track_call == nullptr) {
         core::utility::log::Log::DefaultLog.WriteWarn(
             "[VolumeClusterTracking] No continuous saving available, connect a "

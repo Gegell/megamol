@@ -67,8 +67,11 @@ private:
     /** Generate the corresponding .tsv files for the current tracks */
     // bool generateTsvFiles(bool silent=false);
 
-    /** The slot for the cluster track call */
-    core::CallerSlot out_cluster_track_slot_;
+    /** The slot for the cluster track call, receiving request from upper node */
+    core::CalleeSlot out_poll_cluster_track_slot_;
+
+    /** The slot for the cluster track call, pushing updates to lower nodes */
+    core::CallerSlot out_push_cluster_track_slot_;
 
     /** The slot for the volume cluster id call */
     core::CallerSlot in_cluster_id_slot_;
