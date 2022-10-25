@@ -222,7 +222,7 @@ const float VolumetricDataCall::GetRelativeVoxelValue(
 
     } else {
         uint64_t idx = (z * this->metadata->Resolution[1] + y) * this->metadata->Resolution[0] + x;
-        idx *= this->metadata->Components;
+        idx = idx * this->metadata->Components + c;
         switch (this->metadata->ScalarType) {
         case UNKNOWN:
         case BITS:
@@ -267,8 +267,8 @@ const float VolumetricDataCall::GetAbsoluteVoxelValue(
     } else {
         uint64_t idx =
             z * this->metadata->Resolution[0] * this->metadata->Resolution[1] + y * this->metadata->Resolution[0] + x;
-        idx *= this->metadata->Components;
-        assert(idx < metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2]);
+        idx = idx * this->metadata->Components + c;
+        assert(idx < metadata->Resolution[0] * metadata->Resolution[1] * metadata->Resolution[2] * metadata->Components);
         switch (this->metadata->ScalarType) {
         case UNKNOWN:
         case BITS:
