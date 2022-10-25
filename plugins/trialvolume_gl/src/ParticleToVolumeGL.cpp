@@ -187,10 +187,11 @@ bool ParticleToVolumeGL::computeVolume(geocalls::MultiParticleDataCall* caller) 
 #pragma omp parallel for
     for (auto i = 0; i < data_buffer.size(); ++i) {
         auto const& d = data_buffer[i];
+        auto const avg_vel = d.density > 0.0f ? d.velocity / d.density : glm::vec3(0.0f);
         density_[i] = d.density;
-        velocity_[i] = d.velocity.x / d.density;
-        velocity_[i + 1] = d.velocity.y / d.density;
-        velocity_[i + 2] = d.velocity.z / d.density;
+        velocity_[i] = avg_vel.x;
+        velocity_[i + 1] = avg_vel.y;
+        velocity_[i + 2] = avg_vel.z;
     }
 
     auto const normalizeTime = std::chrono::high_resolution_clock::now();
