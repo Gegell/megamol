@@ -323,9 +323,9 @@ void VolumeClusterTracking::computeTracks() {
                         continue;
                     }
 
-                    auto const x_vel = vel_ptr[current_index * 3 + 0];
-                    auto const y_vel = vel_ptr[current_index * 3 + 1];
-                    auto const z_vel = vel_ptr[current_index * 3 + 2];
+                    auto const x_vel = velocity_call->GetAbsoluteVoxelValue(x, y, z, 0);
+                    auto const y_vel = velocity_call->GetAbsoluteVoxelValue(x, y, z, 1);
+                    auto const z_vel = velocity_call->GetAbsoluteVoxelValue(x, y, z, 2);
 
                     auto& current_cluster = current_cluster_list[current_cluster_id - 1];
                     auto const cell_pos =
