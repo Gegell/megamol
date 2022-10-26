@@ -26,14 +26,15 @@ bool ParticleToVolumeGL::create(void) {
         Log::DefaultLog.WriteError("OpenGL version 4.3 or higher required.");
         return false;
     }
-    if (!ogl_ctx.isExtAvailable("GL_NV_shader_atomic_float")) {
-        Log::DefaultLog.WriteError("GL_NV_shader_atomic_float extension required.");
-        return false;
-    }
 
     auto shader_options = msf::ShaderFactoryOptionsOpenGL(GetCoreInstance()->GetShaderPaths());
-    // HACK, should not be necessary, e.g. should be set automatically, but is not
-    shader_options.addDefinition("GL_NV_shader_atomic_float");
+    if (ogl_ctx.isExtAvailable("GL_NV_shader_atomic_float")) {
+        // HACK, should not be necessary, e.g. should be set automatically, but is not
+        shader_options.addDefinition("GL_NV_shader_atomic_float");
+    } else {
+        Log::DefaultLog.WriteWarn("GL_NV_shader_atomic_float extension recomended.");
+    }
+
 
     try {
         calc_volume_program_ = core::utility::make_glowl_shader(
