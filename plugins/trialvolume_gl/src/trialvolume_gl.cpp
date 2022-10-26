@@ -5,6 +5,7 @@
  */
 
 #include "ParticleToVolumeGL.h"
+#include "TrackingGraphRenderer.h"
 
 #include "mmcore/utility/plugins/AbstractPluginInstance.h"
 #include "mmcore/utility/plugins/PluginRegister.h"
@@ -28,6 +29,7 @@ public:
 
         // register modules
         module_descriptions.RegisterAutoDescription<megamol::trialvolume_gl::ParticleToVolumeGL>();
+        module_descriptions.RegisterAutoDescription<megamol::trialvolume_gl::TrackingGraphRenderer>();
 
         // register calls
     }
