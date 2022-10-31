@@ -28,7 +28,8 @@ VolumeClusterTracking::VolumeClusterTracking()
         , frame_range_limit_param_("frame::limit_range", "Limit the frame range in which to track the clusters")
         , frame_start_param_("frame::start", "The first frame to track")
         , frame_end_param_("frame::end", "The last frame to track")
-        , frame_step_param_("frame::step", "The step size for the frame range") {
+        , frame_step_param_("frame::step", "The step size for the frame range")
+        , hash_(VolumeClusterTracking::GUID()) {
     // Setup the input slots
     in_cluster_id_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_cluster_id_slot_);

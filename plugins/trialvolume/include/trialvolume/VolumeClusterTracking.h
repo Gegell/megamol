@@ -28,6 +28,15 @@ public:
         return true;
     }
 
+    /**
+     * Global unique ID that can e.g. be used for hash calculation.
+     *
+     * @return Unique ID
+     */
+    static inline size_t GUID() {
+        return 0x72bfcc51ab0eaaf9ull;
+    }
+
     /** Constructor */
     VolumeClusterTracking();
 
