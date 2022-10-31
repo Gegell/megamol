@@ -29,7 +29,8 @@ VolumeClusterTracking::VolumeClusterTracking()
         , frame_start_param_("frame::start", "The first frame to track")
         , frame_end_param_("frame::end", "The last frame to track")
         , frame_step_param_("frame::step", "The step size for the frame range")
-        , hash_(VolumeClusterTracking::GUID()) {
+        , hash_(VolumeClusterTracking::GUID())
+        , has_result_(false) {
     // Setup the input slots
     in_cluster_id_slot_.SetCompatibleCall<geocalls::VolumetricDataCallDescription>();
     MakeSlotAvailable(&in_cluster_id_slot_);
@@ -87,7 +88,9 @@ bool VolumeClusterTracking::getDataCallback(core::Call& call) {
         return false;
 
     if (gdc->DataHash() != hash_) {
-        computeTracks();
+        if (!has_result_) {
+            computeTracks();
+        }
         gdc->SetDataHash(hash_);
     }
     gdc->SetGraph(std::make_shared<ClusterGraph>(graph_data_));
@@ -447,4 +450,5 @@ void VolumeClusterTracking::computeTracks() {
 
         prev_cluster_list = current_cluster_list;
     }
+    has_result_ = true;
 }

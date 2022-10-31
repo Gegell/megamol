@@ -114,6 +114,9 @@ private:
 
     /** The hash of the last cluster call */
     size_t hash_;
+
+    /** Store whether we already have one computed result */
+    bool has_result_;
 };
 
 } // namespace megamol::trialvolume
