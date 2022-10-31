@@ -26,7 +26,7 @@ TrackingGraphRenderer::TrackingGraphRenderer()
         : mmstd_gl::Renderer3DModuleGL()
         , in_graph_data_slot_("inData", "The input data slot for the graph data.")
         , line_width_slot_("line width", "Width of the connecting lines") {
-    this->in_graph_data_slot_.SetCompatibleCall<GraphCall>();
+    this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
     this->MakeSlotAvailable(&this->in_graph_data_slot_);
 
     this->line_width_slot_.SetParameter(new core::param::FloatParam(1.0f, 0.01f, 1000.0f));
@@ -75,7 +75,7 @@ bool TrackingGraphRenderer::GetExtents(mmstd_gl::CallRender3DGL& call) {
     if (cr3d == nullptr)
         return false;
 
-    GraphCall* gc = this->in_graph_data_slot_.CallAs<GraphCall>();
+    auto* gc = this->in_graph_data_slot_.CallAs<trialvolume::GraphCall>();
     if (gc == nullptr)
         return false;
     // TODO add the extent call to the graph graph data.
@@ -108,7 +108,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         return false;
 
     // before rendering, call all necessary data
-    GraphCall* gc = this->in_graph_data_slot_.CallAs<GraphCall>();
+    auto* gc = this->in_graph_data_slot_.CallAs<trialvolume::GraphCall>();
     if (gc == nullptr)
         return false;
     // if (!(*gc)(GraphCall::CallForGetExtent))
@@ -157,22 +157,27 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         std::vector<cluster_data_t> cluster_data;
         cluster_data.reserve(clusters.size());
         for (auto const& cluster : clusters) {
+            auto const& cluster_info = dynamic_cast<trialvolume::ClusterInfo*>(cluster.get());
+            if (cluster_info == nullptr) {
+                continue;
+            }
+
             cluster_data_t data;
-            data.bbox_min.x = cluster->bounding_box.getLeft();
-            data.bbox_min.y = cluster->bounding_box.getBottom();
-            data.bbox_min.z = cluster->bounding_box.getBack();
-            data.frame = cluster->frame;
-            data.bbox_max.x = cluster->bounding_box.getRight();
-            data.bbox_max.y = cluster->bounding_box.getTop();
-            data.bbox_max.z = cluster->bounding_box.getFront();
-            data.frame_local_id = cluster->frame_local_id;
-            data.center_of_mass.x = cluster->center_of_mass.X();
-            data.center_of_mass.x = cluster->center_of_mass.Y();
-            data.center_of_mass.x = cluster->center_of_mass.Z();
-            data.total_mass = cluster->total_mass;
-            data.velocity.x = cluster->velocity.X();
-            data.velocity.y = cluster->velocity.Y();
-            data.velocity.z = cluster->velocity.Z();
+            data.bbox_min.x = cluster_info->bounding_box.Left();
+            data.bbox_min.y = cluster_info->bounding_box.Bottom();
+            data.bbox_min.z = cluster_info->bounding_box.Back();
+            data.frame = cluster_info->frame;
+            data.bbox_max.x = cluster_info->bounding_box.Right();
+            data.bbox_max.y = cluster_info->bounding_box.Top();
+            data.bbox_max.z = cluster_info->bounding_box.Front();
+            data.frame_local_id = cluster_info->frame_local_id;
+            data.center_of_mass.x = cluster_info->center_of_mass.X();
+            data.center_of_mass.x = cluster_info->center_of_mass.Y();
+            data.center_of_mass.x = cluster_info->center_of_mass.Z();
+            data.total_mass = cluster_info->total_mass;
+            data.velocity.x = cluster_info->velocity.X();
+            data.velocity.y = cluster_info->velocity.Y();
+            data.velocity.z = cluster_info->velocity.Z();
             data.padding_15 = 0.0f;
             cluster_data.push_back(data);
         }
@@ -188,15 +193,16 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         glEnableVertexAttribArray(5); // frame
         glEnableVertexAttribArray(6); // frame_local_id
 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cluster_data_t) * clusters.size(), cluster_data.data());
+        auto const* data_ptr = cluster_data.data();
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cluster_data_t) * clusters.size(), cluster_data.data(), GL_STATIC_DRAW);
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), 0);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), 4);
-        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), 8);
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), 12);
-        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), 11);
-        glVertexAttribPointer(5, 1, GL_UINT, GL_FALSE, sizeof(cluster_data_t), 3);
-        glVertexAttribPointer(6, 1, GL_UINT, GL_FALSE, sizeof(cluster_data_t), 7);
+        glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, bbox_min));
+        glVertexAttribFormat(1, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, bbox_max));
+        glVertexAttribFormat(2, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, center_of_mass));
+        glVertexAttribFormat(3, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, velocity));
+        glVertexAttribFormat(4, 1, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, total_mass));
+        glVertexAttribIFormat(5, 1, GL_UNSIGNED_INT, offsetof(cluster_data_t, frame));
+        glVertexAttribIFormat(6, 1, GL_UNSIGNED_INT, offsetof(cluster_data_t, frame_local_id));
 
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
@@ -241,8 +247,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
 
     glEnable(GL_DEPTH_TEST);
 
-    // draw one point for each sphere
-    glDrawArrays(GL_LINES, 0, static_cast<GLsizei>(cluster_connections.size()));
+    //glDrawElements(GL_LINES, 2 * clusters.size(), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     glDisable(GL_DEPTH_TEST);
