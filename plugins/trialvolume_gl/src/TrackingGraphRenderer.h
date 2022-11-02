@@ -107,6 +107,9 @@ private:
 
     /** Slot for the scaling factor of the line width*/
     core::param::ParamSlot line_width_slot_;
+
+    /** Bounding box */
+    vislib::math::Cuboid<float> bbox_;
 };
 
 } // namespace megamol::trialvolume_gl

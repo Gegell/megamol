@@ -156,6 +156,10 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
 
         std::vector<cluster_data_t> cluster_data;
         cluster_data.reserve(clusters.size());
+
+        glm::vec3 min_pos = glm::vec3(std::numeric_limits<float>::max());
+        glm::vec3 max_pos = glm::vec3(std::numeric_limits<float>::min());
+
         for (auto const& cluster : clusters) {
             auto const& cluster_info = dynamic_cast<trialvolume::ClusterInfo*>(cluster.get());
             if (cluster_info == nullptr) {
@@ -180,7 +184,12 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
             data.velocity.z = cluster_info->velocity.Z();
             data.padding_15 = 0.0f;
             cluster_data.push_back(data);
+
+            min_pos = glm::min(min_pos, data.bbox_min);
+            max_pos = glm::max(max_pos, data.bbox_max);
         }
+
+        bbox_ = vislib::math::Cuboid<float>(min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
 
         // load the data into the vertex buffer
         glBindVertexArray(va);
@@ -208,8 +217,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         glBindVertexArray(0);
     }
 
-    // TODO add bbox to graph data?
-    // cr3d->AccessBoundingBoxes() = gc->AccessBoundingBoxes();
+    cr3d->AccessBoundingBoxes().SetBoundingBox(bbox_);
 
     core::view::Camera cam = cr3d->GetCamera();
 
