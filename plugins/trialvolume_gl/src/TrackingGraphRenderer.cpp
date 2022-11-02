@@ -172,8 +172,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
             data.bbox_max.z = cluster_info->bounding_box.Front();
             data.frame_local_id = cluster_info->frame_local_id;
             data.center_of_mass.x = cluster_info->center_of_mass.X();
-            data.center_of_mass.x = cluster_info->center_of_mass.Y();
-            data.center_of_mass.x = cluster_info->center_of_mass.Z();
+            data.center_of_mass.y = cluster_info->center_of_mass.Y();
+            data.center_of_mass.z = cluster_info->center_of_mass.Z();
             data.total_mass = cluster_info->total_mass;
             data.velocity.x = cluster_info->velocity.X();
             data.velocity.y = cluster_info->velocity.Y();
