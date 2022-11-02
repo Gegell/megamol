@@ -16,8 +16,14 @@
 #include "vislib/math/Matrix.h"
 #include "vislib/math/ShallowMatrix.h"
 
+#include <GL/glu.h>
+
+#include <map>
+#include <vector>
+
 using namespace megamol;
 using namespace megamol::trialvolume_gl;
+using megamol::core::utility::log::Log;
 
 /*
  * TrackingGraphRenderer::TrackingGraphRenderer
@@ -35,6 +41,7 @@ TrackingGraphRenderer::TrackingGraphRenderer()
     last_data_hash_ = 0;
     vbo = 0;
     va = 0;
+    ibo = 0;
 }
 
 /*
@@ -97,6 +104,9 @@ void TrackingGraphRenderer::release() {
     if (vbo != 0) {
         glDeleteBuffers(1, &vbo);
     }
+    if (ibo != 0) {
+        glDeleteBuffers(1, &ibo);
+    }
 }
 
 /*
@@ -126,9 +136,10 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
     if (gc->DataHash() != last_data_hash_) {
         last_data_hash_ = gc->DataHash();
 
-        if (va == 0 || vbo == 0) { // generate new buffers only if they do not exist
+        if (va == 0 || vbo == 0 || ibo == 0) { // generate new buffers only if they do not exist
             glGenVertexArrays(1, &va);
             glGenBuffers(1, &vbo);
+            glGenBuffers(1, &ibo);
         }
 
         // get the data
@@ -155,6 +166,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         };
 
         std::vector<cluster_data_t> cluster_data;
+        std::map<uint64_t, size_t> id_to_index;
         cluster_data.reserve(clusters.size());
 
         glm::vec3 min_pos = glm::vec3(std::numeric_limits<float>::max());
@@ -165,6 +177,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
             if (cluster_info == nullptr) {
                 continue;
             }
+
+            id_to_index[cluster_info->id] = cluster_data.size();
 
             cluster_data_t data;
             data.bbox_min.x = cluster_info->bounding_box.Left();
@@ -202,18 +216,36 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         glEnableVertexAttribArray(5); // frame
         glEnableVertexAttribArray(6); // frame_local_id
 
-        auto const* data_ptr = cluster_data.data();
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cluster_data_t) * clusters.size(), cluster_data.data(), GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(cluster_data_t) * cluster_data.size(), cluster_data.data(), GL_STATIC_DRAW);
 
-        glVertexAttribFormat(0, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, bbox_min));
-        glVertexAttribFormat(1, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, bbox_max));
-        glVertexAttribFormat(2, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, center_of_mass));
-        glVertexAttribFormat(3, 3, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, velocity));
-        glVertexAttribFormat(4, 1, GL_FLOAT, GL_FALSE, offsetof(cluster_data_t, total_mass));
-        glVertexAttribIFormat(5, 1, GL_UNSIGNED_INT, offsetof(cluster_data_t, frame));
-        glVertexAttribIFormat(6, 1, GL_UNSIGNED_INT, offsetof(cluster_data_t, frame_local_id));
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, bbox_min));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, bbox_max));
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, center_of_mass));
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, velocity));
+        glVertexAttribPointer(4, 1, GL_FLOAT, GL_FALSE, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, total_mass));
+        glVertexAttribIPointer(5, 1, GL_UNSIGNED_INT, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, frame));
+        glVertexAttribIPointer(6, 1, GL_UNSIGNED_INT, sizeof(cluster_data_t), (void*)offsetof(cluster_data_t, frame_local_id));
 
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        // Generate the index buffer
+        std::vector<GLuint> indices;
+        indices.reserve(cluster_connections.size() * 2);
+        for (auto const& connection : cluster_connections) {
+            auto const& cluster_info_1 = dynamic_cast<trialvolume::ClusterInfo*>(connection->source.get());
+            auto const& cluster_info_2 = dynamic_cast<trialvolume::ClusterInfo*>(connection->target.get());
+            if (cluster_info_1 == nullptr || cluster_info_2 == nullptr) {
+                continue;
+            }
+
+            indices.push_back(id_to_index[cluster_info_1->id]);
+            indices.push_back(id_to_index[cluster_info_2->id]);
+        }
+        num_indices_ = indices.size();
+
+        // load the data into the index buffer
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * indices.size(), indices.data(), GL_STATIC_DRAW);
+
+        // unbind the buffers
         glBindVertexArray(0);
     }
 
@@ -234,15 +266,6 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
     // Use the line shader
     this->line_shader_->use();
 
-    glBindVertexArray(va);
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
-    glEnableVertexAttribArray(3);
-    glEnableVertexAttribArray(4);
-    glEnableVertexAttribArray(5);
-    glEnableVertexAttribArray(6);
-
     // set all uniforms for the shaders
     this->line_shader_->setUniform("mvp", mvp);
     this->line_shader_->setUniform("view", view);
@@ -253,11 +276,13 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
     this->line_shader_->setUniform("camDir", cam_pose.direction.x, cam_pose.direction.y, cam_pose.direction.z);
     this->line_shader_->setUniform("scalingFactor", this->line_width_slot_.Param<core::param::FloatParam>()->Value());
 
+    // draw the lines
+    glBindVertexArray(va);
     glEnable(GL_DEPTH_TEST);
 
-    //glDrawElements(GL_LINES, 2 * clusters.size(), GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
 
+    glBindVertexArray(0);
     glDisable(GL_DEPTH_TEST);
 
     glUseProgram(0);

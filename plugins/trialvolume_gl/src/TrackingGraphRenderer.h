@@ -99,6 +99,12 @@ private:
     /** The vertex array for the rendered vertices. */
     GLuint va;
 
+    /** The index buffer object for the rendered vertices. */
+    GLuint ibo;
+
+    /** The number of line indices to render */
+    size_t num_indices_;
+
     /** The data hash of the most recent rendered data */
     std::size_t last_data_hash_;
 
