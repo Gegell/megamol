@@ -13,6 +13,6 @@ out vec4 color;
 
 void main() {
     vec4 pos = vec4(center_of_mass.xyz, 1.0);
-    color = vec4(velocity, 1.0);
+    color = vec4(normalize(velocity), 1.0);
     gl_Position = mvp * pos;
 }

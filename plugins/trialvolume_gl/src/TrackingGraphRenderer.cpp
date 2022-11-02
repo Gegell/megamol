@@ -88,7 +88,7 @@ bool TrackingGraphRenderer::GetExtents(mmstd_gl::CallRender3DGL& call) {
     // TODO add the extent call to the graph graph data.
     // if (!(*gc)(GraphCall::CallForGetExtent))
 
-    // cr3d->AccessBoundingBoxes() = gc->AccessBoundingBoxes();
+    cr3d->AccessBoundingBoxes().SetBoundingBox(bbox_);
     // cr3d->SetTimeFramesCount(gc->FrameCount());
 
     return true;
@@ -261,7 +261,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
     // start the rendering
 
     // Scale the point size with the parameter
-    glPointSize(this->line_width_slot_.Param<core::param::FloatParam>()->Value());
+    glLineWidth(this->line_width_slot_.Param<core::param::FloatParam>()->Value());
 
     // Use the line shader
     this->line_shader_->use();
