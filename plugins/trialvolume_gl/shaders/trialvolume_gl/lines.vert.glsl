@@ -1,5 +1,8 @@
 #version 400
 
+#include "mmstd_gl/common/tflookup.inc.glsl"
+#include "mmstd_gl/common/tfconvenience.inc.glsl"
+
 #define COLORMODE_VELOCITY 0
 #define COLORMODE_TOTAL_MASS 1
 #define COLORMODE_LOCAL_ID 2
@@ -36,13 +39,13 @@ void main() {
             vs_out.color.rgb = normalize(velocity) * .5 + .5;
             break;
         case COLORMODE_TOTAL_MASS:
-            vs_out.color.rgb = vec3(total_mass) / max_mass;
+            vs_out.color = tflookup(total_mass / max_mass);
             break;
         case COLORMODE_LOCAL_ID:
-            vs_out.color.rgb = vec3(frame_local_id) / max_frame_local_id;
+            vs_out.color = tflookup(float(frame_local_id) / max_frame_local_id);
             break;
         case COLORMODE_FRAME:
-            vs_out.color.rgb = vec3(frame) / max_frame;
+            vs_out.color = tflookup(float(frame) / max_frame);
             break;
     }
 }

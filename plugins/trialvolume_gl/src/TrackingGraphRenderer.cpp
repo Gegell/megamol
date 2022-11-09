@@ -15,6 +15,7 @@
 #include "mmcore/param/EnumParam.h"
 #include "mmcore_gl/utility/ShaderFactory.h"
 #include "mmstd_gl/renderer/CallRender3DGL.h"
+#include "mmstd_gl/renderer/CallGetTransferFunctionGL.h"
 #include "vislib/math/Matrix.h"
 #include "vislib/math/ShallowMatrix.h"
 
@@ -33,6 +34,7 @@ using megamol::core::utility::log::Log;
 TrackingGraphRenderer::TrackingGraphRenderer()
         : mmstd_gl::Renderer3DModuleGL()
         , in_graph_data_slot_("inData", "The input data slot for the graph data.")
+        , in_tf_slot_("inTransferfunction", "The slot for the transfer function module")
         , line_width_slot_("line width", "Width of the connecting lines")
         , draw_connections_slot_("drawConnections", "Draw the connections between the nodes")
         , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes")
@@ -40,6 +42,9 @@ TrackingGraphRenderer::TrackingGraphRenderer()
         , color_mode_slot_("colorMode", "The color mode for the nodes") {
     this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
     this->MakeSlotAvailable(&this->in_graph_data_slot_);
+
+    this->in_tf_slot_.SetCompatibleCall<mmstd_gl::CallGetTransferFunctionGLDescription>();
+    this->MakeSlotAvailable(&this->in_tf_slot_);
 
     this->line_width_slot_.SetParameter(new core::param::FloatParam(1.0f, 0.01f, 1000.0f));
     this->MakeSlotAvailable(&this->line_width_slot_);
@@ -65,6 +70,7 @@ TrackingGraphRenderer::TrackingGraphRenderer()
     vbo = 0;
     va = 0;
     ibo = 0;
+    grey_tf_ = 0;
 }
 
 /*
@@ -95,6 +101,16 @@ bool TrackingGraphRenderer::create() {
         Log::DefaultLog.WriteError(("TrackingGraphRenderer: " + std::string(e.what())).c_str());
         return false;
     }
+
+    // Fallback transfer function texture
+    glGenTextures(1, &this->grey_tf_);
+    unsigned char tex[6] = {0, 0, 0, 255, 255, 255};
+    glBindTexture(GL_TEXTURE_1D, this->grey_tf_);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, tex);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glBindTexture(GL_TEXTURE_1D, 0);
 
     return true;
 }
@@ -132,6 +148,36 @@ void TrackingGraphRenderer::release() {
     if (ibo != 0) {
         glDeleteBuffers(1, &ibo);
     }
+    if (grey_tf_ != 0) {
+        glDeleteTextures(1, &grey_tf_);
+    }
+}
+
+// Joinked from moldyn::SphereRenderer
+bool TrackingGraphRenderer::enableTransferFunctionTexture(glowl::GLSLProgram& prgm) {
+    mmstd_gl::CallGetTransferFunctionGL* cgtf = in_tf_slot_.CallAs<mmstd_gl::CallGetTransferFunctionGL>();
+    if ((cgtf != nullptr) && (*cgtf)(0)) {
+        cgtf->BindConvenience(prgm, GL_TEXTURE0, 0);
+    } else {
+        glEnable(GL_TEXTURE_1D);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_1D, grey_tf_);
+        glUniform1i(prgm.getUniformLocation("tfTexture"), 0);
+        glUniform2fv(prgm.getUniformLocation("tfRange"), 1, static_cast<GLfloat*>(tf_range_.data()));
+    }
+    return true;
+}
+
+// Joinked from moldyn::SphereRenderer
+bool TrackingGraphRenderer::disableTransferFunctionTexture(void) {
+    mmstd_gl::CallGetTransferFunctionGL* cgtf = in_tf_slot_.CallAs<mmstd_gl::CallGetTransferFunctionGL>();
+    if (cgtf != nullptr) {
+        cgtf->UnbindConvenience();
+    } else {
+        glBindTexture(GL_TEXTURE_1D, 0);
+        glDisable(GL_TEXTURE_1D);
+    }
+    return true;
 }
 
 /*
@@ -332,7 +378,9 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         line_shader_->setUniform("max_frame", static_cast<float>(last_frame_));
         line_shader_->setUniform("max_frame_local_id", static_cast<float>(max_local_id_));
 
+        enableTransferFunctionTexture(*line_shader_);
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
+        disableTransferFunctionTexture();
     }
 
     glBindVertexArray(0);

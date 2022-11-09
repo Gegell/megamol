@@ -97,8 +97,18 @@ private:
      */
     bool Render(mmstd_gl::CallRender3DGL& call) override;
 
+    /** The function which optionally gets a tf texture if available */
+    bool enableTransferFunctionTexture(glowl::GLSLProgram& prgm);
+
+    /** The function which unbinds the optional tf texture */
+    bool disableTransferFunctionTexture();
+
+
     /** The input data slot. */
     core::CallerSlot in_graph_data_slot_;
+
+    /** The transfer function data slot. */
+    core::CallerSlot in_tf_slot_;
 
     /** The vertex buffer object for the rendered vertices. */
     GLuint vbo;
@@ -108,6 +118,10 @@ private:
 
     /** The index buffer object for the rendered vertices. */
     GLuint ibo;
+
+    /** Default linear tf */
+    GLuint grey_tf_;
+    std::array<float, 2> tf_range_;
 
     /** The number of line indices to render */
     size_t num_indices_;
