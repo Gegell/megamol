@@ -9,10 +9,15 @@ layout(location = 5) in uint frame;
 layout(location = 6) in uint frame_local_id;
 
 uniform mat4 mvp;
-out vec4 color;
+
+out VS_OUT {
+    vec4 color;
+    float total_mass;
+} vs_out;
 
 void main() {
     vec4 pos = vec4(center_of_mass.xyz, 1.0);
-    color = vec4(normalize(velocity) * .5 + .5, 1.0);
     gl_Position = mvp * pos;
+    vs_out.total_mass = total_mass;
+    vs_out.color = vec4(normalize(velocity) * .5 + .5, 1.0);;
 }

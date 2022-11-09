@@ -34,7 +34,8 @@ TrackingGraphRenderer::TrackingGraphRenderer()
         , in_graph_data_slot_("inData", "The input data slot for the graph data.")
         , line_width_slot_("line width", "Width of the connecting lines")
         , draw_connections_slot_("drawConnections", "Draw the connections between the nodes")
-        , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes") {
+        , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes")
+        , filter_min_mass_slot_("filter::min_mass", "Filter the nodes by mass") {
     this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
     this->MakeSlotAvailable(&this->in_graph_data_slot_);
 
@@ -46,6 +47,9 @@ TrackingGraphRenderer::TrackingGraphRenderer()
 
     this->draw_bboxes_slot_.SetParameter(new core::param::BoolParam(true));
     this->MakeSlotAvailable(&this->draw_bboxes_slot_);
+
+    this->filter_min_mass_slot_.SetParameter(new core::param::FloatParam(0.0f, 0.0f));
+    this->MakeSlotAvailable(&this->filter_min_mass_slot_);
 
     last_data_hash_ = 0;
     vbo = 0;
@@ -280,9 +284,14 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         return true;
     }
 
+    float min_mass = filter_min_mass_slot_.Param<core::param::FloatParam>()->Value();
+
     // start the rendering
     glBindVertexArray(va);
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LINE_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Scale the point size with the parameter
     glLineWidth(this->line_width_slot_.Param<core::param::FloatParam>()->Value());
@@ -292,6 +301,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         bbox_shader_->use();
         bbox_shader_->setUniform("mvp", mvp);
         bbox_shader_->setUniform("time", cr3d->Time());
+        bbox_shader_->setUniform("min_mass", min_mass);
 
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
     }
@@ -301,12 +311,15 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         line_shader_->use();
         // set all uniforms for the shaders
         line_shader_->setUniform("mvp", mvp);
+        line_shader_->setUniform("min_mass", min_mass);
 
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
     }
 
     glBindVertexArray(0);
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LINE_SMOOTH);
+    glDisable(GL_BLEND);
 
     glUseProgram(0);
 

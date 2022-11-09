@@ -123,6 +123,9 @@ private:
     /** Slot for the scaling factor of the line width*/
     core::param::ParamSlot line_width_slot_;
 
+    /** Slot for min mass to be rendered */
+    core::param::ParamSlot filter_min_mass_slot_;
+
     /** Bounding box */
     vislib::math::Cuboid<float> bbox_;
 

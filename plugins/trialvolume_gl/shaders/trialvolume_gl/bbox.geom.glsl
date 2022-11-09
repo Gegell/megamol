@@ -5,12 +5,14 @@ layout (line_strip, max_vertices = 24) out;
 
 in VS_OUT {
     vec3 bbox_min;
+    float total_mass;
     vec3 bbox_max;
     uint frame;
 } gs_in[];
 
 uniform mat4 mvp;
 uniform float time;
+uniform float min_mass;
 out vec4 color;
 
 const vec3 box_mults[8] = vec3[8](
@@ -52,6 +54,12 @@ void main() {
         return;
     }
     float fTime = fract(time);
+
+    float mass = mix(gs_in[0].total_mass, gs_in[1].total_mass, fTime);
+    if (mass < min_mass) {
+        return;
+    }
+
     vec3 bbox_min = mix(gs_in[0].bbox_min, gs_in[1].bbox_min, fTime);
     vec3 bbox_max = mix(gs_in[0].bbox_max, gs_in[1].bbox_max, fTime);
 

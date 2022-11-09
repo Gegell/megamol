@@ -12,6 +12,7 @@ uniform mat4 mvp;
 
 out VS_OUT {
     vec3 bbox_min;
+    float total_mass;
     vec3 bbox_max;
     uint frame;
 } vs_out;
@@ -22,4 +23,5 @@ void main() {
     vs_out.bbox_min = bbox_min;
     vs_out.bbox_max = bbox_max;
     vs_out.frame = frame;
+    vs_out.total_mass = total_mass;
 }
