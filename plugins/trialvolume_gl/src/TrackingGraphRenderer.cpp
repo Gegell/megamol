@@ -11,6 +11,7 @@
 
 #include "mmcore/CoreInstance.h"
 #include "mmcore/param/FloatParam.h"
+#include "mmcore/param/BoolParam.h"
 #include "mmcore_gl/utility/ShaderFactory.h"
 #include "mmstd_gl/renderer/CallRender3DGL.h"
 #include "vislib/math/Matrix.h"
@@ -31,12 +32,20 @@ using megamol::core::utility::log::Log;
 TrackingGraphRenderer::TrackingGraphRenderer()
         : mmstd_gl::Renderer3DModuleGL()
         , in_graph_data_slot_("inData", "The input data slot for the graph data.")
-        , line_width_slot_("line width", "Width of the connecting lines") {
+        , line_width_slot_("line width", "Width of the connecting lines")
+        , draw_connections_slot_("drawConnections", "Draw the connections between the nodes")
+        , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes") {
     this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
     this->MakeSlotAvailable(&this->in_graph_data_slot_);
 
     this->line_width_slot_.SetParameter(new core::param::FloatParam(1.0f, 0.01f, 1000.0f));
     this->MakeSlotAvailable(&this->line_width_slot_);
+
+    this->draw_connections_slot_.SetParameter(new core::param::BoolParam(true));
+    this->MakeSlotAvailable(&this->draw_connections_slot_);
+
+    this->draw_bboxes_slot_.SetParameter(new core::param::BoolParam(true));
+    this->MakeSlotAvailable(&this->draw_bboxes_slot_);
 
     last_data_hash_ = 0;
     vbo = 0;
@@ -66,6 +75,8 @@ bool TrackingGraphRenderer::create() {
         line_shader_ = core::utility::make_glowl_shader(
             "trialvol_lines", shader_options, "trialvolume_gl/lines.vert.glsl", "trialvolume_gl/lines.frag.glsl");
 
+        bbox_shader_ = core::utility::make_glowl_shader(
+            "trialvol_bbox", shader_options, "trialvolume_gl/bbox.geom.glsl", "trialvolume_gl/bbox.vert.glsl", "trialvolume_gl/bbox.frag.glsl");
     } catch (std::exception& e) {
         Log::DefaultLog.WriteError(("TrackingGraphRenderer: " + std::string(e.what())).c_str());
         return false;
@@ -171,6 +182,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
 
         glm::vec3 min_pos = glm::vec3(std::numeric_limits<float>::max());
         glm::vec3 max_pos = glm::vec3(std::numeric_limits<float>::min());
+        last_frame_ = 0;
 
         for (auto const& cluster : clusters) {
             auto const& cluster_info = dynamic_cast<trialvolume::ClusterInfo*>(cluster.get());
@@ -201,6 +213,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
 
             min_pos = glm::min(min_pos, data.bbox_min);
             max_pos = glm::max(max_pos, data.bbox_max);
+            last_frame_ = std::max(last_frame_, static_cast<int>(data.frame));
         }
 
         bbox_ = vislib::math::Cuboid<float>(min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
@@ -250,37 +263,47 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
     }
 
     cr3d->AccessBoundingBoxes().SetBoundingBox(bbox_);
+    cr3d->SetTimeFramesCount(last_frame_ + 1);
 
     core::view::Camera cam = cr3d->GetCamera();
 
     auto view = cam.getViewMatrix();
     auto proj = cam.getProjectionMatrix();
     auto mvp = proj * view;
-    auto cam_pose = cam.get<core::view::Camera::Pose>();
+
+    bool draw_bboxes = draw_bboxes_slot_.Param<core::param::BoolParam>()->Value();
+    bool draw_connections = draw_connections_slot_.Param<core::param::BoolParam>()->Value();
+
+    bool draw_anything = draw_bboxes || draw_connections;
+
+    if (!draw_anything) {
+        return true;
+    }
 
     // start the rendering
+    glBindVertexArray(va);
+    glEnable(GL_DEPTH_TEST);
 
     // Scale the point size with the parameter
     glLineWidth(this->line_width_slot_.Param<core::param::FloatParam>()->Value());
 
-    // Use the line shader
-    this->line_shader_->use();
+    if (draw_bboxes) {
+        // use the bbox shader
+        bbox_shader_->use();
+        bbox_shader_->setUniform("mvp", mvp);
+        bbox_shader_->setUniform("time", cr3d->Time());
 
-    // set all uniforms for the shaders
-    this->line_shader_->setUniform("mvp", mvp);
-    this->line_shader_->setUniform("view", view);
-    this->line_shader_->setUniform("proj", proj);
-    this->line_shader_->setUniform("camRight", cam_pose.right.x, cam_pose.right.y, cam_pose.right.z);
-    this->line_shader_->setUniform("camUp", cam_pose.up.x, cam_pose.up.y, cam_pose.up.z);
-    this->line_shader_->setUniform("camPos", cam_pose.position.x, cam_pose.position.y, cam_pose.position.z);
-    this->line_shader_->setUniform("camDir", cam_pose.direction.x, cam_pose.direction.y, cam_pose.direction.z);
-    this->line_shader_->setUniform("scalingFactor", this->line_width_slot_.Param<core::param::FloatParam>()->Value());
+        glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
+    }
 
-    // draw the lines
-    glBindVertexArray(va);
-    glEnable(GL_DEPTH_TEST);
+    if (draw_connections) {
+        // Use the line shader
+        line_shader_->use();
+        // set all uniforms for the shaders
+        line_shader_->setUniform("mvp", mvp);
 
-    glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
+        glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
+    }
 
     glBindVertexArray(0);
     glDisable(GL_DEPTH_TEST);

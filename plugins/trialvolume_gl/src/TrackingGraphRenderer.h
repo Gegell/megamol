@@ -111,11 +111,23 @@ private:
     /** The simple shader to draw the lines between the nodes */
     std::unique_ptr<glowl::GLSLProgram> line_shader_;
 
+    /** Slot for the line shader enable */
+    core::param::ParamSlot draw_connections_slot_;
+
+    /** The shader to draw the bboxes of the clusters in the current timestep*/
+    std::unique_ptr<glowl::GLSLProgram> bbox_shader_;
+
+    /** Slot for the bbox shader enable */
+    core::param::ParamSlot draw_bboxes_slot_;
+
     /** Slot for the scaling factor of the line width*/
     core::param::ParamSlot line_width_slot_;
 
     /** Bounding box */
     vislib::math::Cuboid<float> bbox_;
+
+    /** Last frame encountered */
+    int last_frame_;
 };
 
 } // namespace megamol::trialvolume_gl
