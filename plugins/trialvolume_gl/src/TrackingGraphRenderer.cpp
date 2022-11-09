@@ -12,6 +12,7 @@
 #include "mmcore/CoreInstance.h"
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/BoolParam.h"
+#include "mmcore/param/EnumParam.h"
 #include "mmcore_gl/utility/ShaderFactory.h"
 #include "mmstd_gl/renderer/CallRender3DGL.h"
 #include "vislib/math/Matrix.h"
@@ -35,7 +36,8 @@ TrackingGraphRenderer::TrackingGraphRenderer()
         , line_width_slot_("line width", "Width of the connecting lines")
         , draw_connections_slot_("drawConnections", "Draw the connections between the nodes")
         , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes")
-        , filter_min_mass_slot_("filter::min_mass", "Filter the nodes by mass") {
+        , filter_min_mass_slot_("filter::min_mass", "Filter the nodes by mass")
+        , color_mode_slot_("colorMode", "The color mode for the nodes") {
     this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
     this->MakeSlotAvailable(&this->in_graph_data_slot_);
 
@@ -50,6 +52,14 @@ TrackingGraphRenderer::TrackingGraphRenderer()
 
     this->filter_min_mass_slot_.SetParameter(new core::param::FloatParam(0.0f, 0.0f));
     this->MakeSlotAvailable(&this->filter_min_mass_slot_);
+
+    auto color_mode_param = new core::param::EnumParam(static_cast<int>(ColorMode::VELOCITY));
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::VELOCITY), "Velocity");
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::TOTAL_MASS), "Total Mass");
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::LOCAL_ID), "Local ID");
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::FRAME), "Frame");
+    this->color_mode_slot_.SetParameter(color_mode_param);
+    this->MakeSlotAvailable(&this->color_mode_slot_);
 
     last_data_hash_ = 0;
     vbo = 0;
@@ -187,6 +197,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         glm::vec3 min_pos = glm::vec3(std::numeric_limits<float>::max());
         glm::vec3 max_pos = glm::vec3(std::numeric_limits<float>::min());
         last_frame_ = 0;
+        max_local_id_ = 0;
+        max_total_mass_ = 0.0f;
 
         for (auto const& cluster : clusters) {
             auto const& cluster_info = dynamic_cast<trialvolume::ClusterInfo*>(cluster.get());
@@ -218,6 +230,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
             min_pos = glm::min(min_pos, data.bbox_min);
             max_pos = glm::max(max_pos, data.bbox_max);
             last_frame_ = std::max(last_frame_, static_cast<int>(data.frame));
+            max_local_id_ = std::max(max_local_id_, static_cast<int>(data.frame_local_id));
+            max_total_mass_ = std::max(max_total_mass_, data.total_mass);
         }
 
         bbox_ = vislib::math::Cuboid<float>(min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
@@ -284,7 +298,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         return true;
     }
 
-    float min_mass = filter_min_mass_slot_.Param<core::param::FloatParam>()->Value();
+    float const min_mass = filter_min_mass_slot_.Param<core::param::FloatParam>()->Value();
+    auto const color_mode = color_mode_slot_.Param<core::param::EnumParam>()->Value();
 
     // start the rendering
     glBindVertexArray(va);
@@ -312,6 +327,10 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         // set all uniforms for the shaders
         line_shader_->setUniform("mvp", mvp);
         line_shader_->setUniform("min_mass", min_mass);
+        line_shader_->setUniform("color_mode", color_mode);
+        line_shader_->setUniform("max_mass", max_total_mass_);
+        line_shader_->setUniform("max_frame", static_cast<float>(last_frame_));
+        line_shader_->setUniform("max_frame_local_id", static_cast<float>(max_local_id_));
 
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
     }

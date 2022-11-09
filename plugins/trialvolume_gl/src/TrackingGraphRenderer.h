@@ -54,6 +54,13 @@ public:
     /** Destructor. */
     ~TrackingGraphRenderer() override;
 
+    enum class ColorMode {
+        VELOCITY,
+        TOTAL_MASS,
+        LOCAL_ID,
+        FRAME
+    };
+
 protected:
     /**
      * Implementation of 'Create'.
@@ -126,11 +133,18 @@ private:
     /** Slot for min mass to be rendered */
     core::param::ParamSlot filter_min_mass_slot_;
 
+    /** Slot for coloring mode */
+    core::param::ParamSlot color_mode_slot_;
+
     /** Bounding box */
     vislib::math::Cuboid<float> bbox_;
 
     /** Last frame encountered */
     int last_frame_;
+
+    /** Maxima for normalization purposes */
+    int max_local_id_;
+    float max_total_mass_;
 };
 
 } // namespace megamol::trialvolume_gl
