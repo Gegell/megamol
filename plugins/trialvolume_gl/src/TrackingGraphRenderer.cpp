@@ -13,6 +13,7 @@
 #include "mmcore/param/FloatParam.h"
 #include "mmcore/param/BoolParam.h"
 #include "mmcore/param/EnumParam.h"
+#include "mmcore/param/ColorParam.h"
 #include "mmcore_gl/utility/ShaderFactory.h"
 #include "mmstd_gl/renderer/CallRender3DGL.h"
 #include "mmstd_gl/renderer/CallGetTransferFunctionGL.h"
@@ -38,6 +39,7 @@ TrackingGraphRenderer::TrackingGraphRenderer()
         , line_width_slot_("line width", "Width of the connecting lines")
         , draw_connections_slot_("drawConnections", "Draw the connections between the nodes")
         , draw_bboxes_slot_("drawBBoxes", "Draw the bounding boxes of the nodes")
+        , bbox_color_slot_("bboxColor", "Color of the bounding boxes")
         , filter_min_mass_slot_("filter::min_mass", "Filter the nodes by mass")
         , color_mode_slot_("colorMode", "The color mode for the nodes") {
     this->in_graph_data_slot_.SetCompatibleCall<trialvolume::GraphCallDescription>();
@@ -54,6 +56,9 @@ TrackingGraphRenderer::TrackingGraphRenderer()
 
     this->draw_bboxes_slot_.SetParameter(new core::param::BoolParam(true));
     this->MakeSlotAvailable(&this->draw_bboxes_slot_);
+
+    this->bbox_color_slot_.SetParameter(new core::param::ColorParam(0.0f, 0.0f, 0.0f, 1.0f));
+    this->MakeSlotAvailable(&this->bbox_color_slot_);
 
     this->filter_min_mass_slot_.SetParameter(new core::param::FloatParam(0.0f, 0.0f));
     this->MakeSlotAvailable(&this->filter_min_mass_slot_);
@@ -346,6 +351,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
 
     float const min_mass = filter_min_mass_slot_.Param<core::param::FloatParam>()->Value();
     auto const color_mode = color_mode_slot_.Param<core::param::EnumParam>()->Value();
+    auto const bbox_color = bbox_color_slot_.Param<core::param::ColorParam>()->Value();
 
     // start the rendering
     glBindVertexArray(va);
@@ -363,6 +369,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         bbox_shader_->setUniform("mvp", mvp);
         bbox_shader_->setUniform("time", cr3d->Time());
         bbox_shader_->setUniform("min_mass", min_mass);
+        bbox_shader_->setUniform("line_color", glm::vec4(bbox_color[0], bbox_color[1], bbox_color[2], bbox_color[3]));
 
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);
     }

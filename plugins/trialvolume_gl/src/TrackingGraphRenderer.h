@@ -141,6 +141,9 @@ private:
     /** Slot for the bbox shader enable */
     core::param::ParamSlot draw_bboxes_slot_;
 
+    /** Slot for the bbox line color */
+    core::param::ParamSlot bbox_color_slot_;
+
     /** Slot for the scaling factor of the line width*/
     core::param::ParamSlot line_width_slot_;
 
