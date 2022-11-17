@@ -63,8 +63,9 @@ TrackingGraphRenderer::TrackingGraphRenderer()
     this->filter_min_mass_slot_.SetParameter(new core::param::FloatParam(0.0f, 0.0f));
     this->MakeSlotAvailable(&this->filter_min_mass_slot_);
 
-    auto color_mode_param = new core::param::EnumParam(static_cast<int>(ColorMode::VELOCITY));
-    color_mode_param->SetTypePair(static_cast<int>(ColorMode::VELOCITY), "Velocity");
+    auto color_mode_param = new core::param::EnumParam(static_cast<int>(ColorMode::VELOCITY_DIR));
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::VELOCITY_DIR), "Velocity direction");
+    color_mode_param->SetTypePair(static_cast<int>(ColorMode::VELOCITY_MAG), "Velocity magnitude");
     color_mode_param->SetTypePair(static_cast<int>(ColorMode::TOTAL_MASS), "Total Mass");
     color_mode_param->SetTypePair(static_cast<int>(ColorMode::LOCAL_ID), "Local ID");
     color_mode_param->SetTypePair(static_cast<int>(ColorMode::FRAME), "Frame");
@@ -250,6 +251,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         last_frame_ = 0;
         max_local_id_ = 0;
         max_total_mass_ = 0.0f;
+        max_velocity_ = 0.0f;
 
         for (auto const& cluster : clusters) {
             auto const& cluster_info = dynamic_cast<trialvolume::ClusterInfo*>(cluster.get());
@@ -283,6 +285,7 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
             last_frame_ = std::max(last_frame_, static_cast<int>(data.frame));
             max_local_id_ = std::max(max_local_id_, static_cast<int>(data.frame_local_id));
             max_total_mass_ = std::max(max_total_mass_, data.total_mass);
+            max_velocity_ = std::max(max_velocity_, glm::length(data.velocity));
         }
 
         bbox_ = vislib::math::Cuboid<float>(min_pos.x, min_pos.y, min_pos.z, max_pos.x, max_pos.y, max_pos.z);
@@ -384,6 +387,8 @@ bool TrackingGraphRenderer::Render(mmstd_gl::CallRender3DGL& call) {
         line_shader_->setUniform("max_mass", max_total_mass_);
         line_shader_->setUniform("max_frame", static_cast<float>(last_frame_));
         line_shader_->setUniform("max_frame_local_id", static_cast<float>(max_local_id_));
+        line_shader_->setUniform("max_velocity", max_velocity_);
+        line_shader_->setUniform("time", cr3d->Time());
 
         enableTransferFunctionTexture(*line_shader_);
         glDrawElements(GL_LINES, num_indices_, GL_UNSIGNED_INT, nullptr);

@@ -55,7 +55,8 @@ public:
     ~TrackingGraphRenderer() override;
 
     enum class ColorMode {
-        VELOCITY,
+        VELOCITY_DIR,
+        VELOCITY_MAG,
         TOTAL_MASS,
         LOCAL_ID,
         FRAME
@@ -162,6 +163,7 @@ private:
     /** Maxima for normalization purposes */
     int max_local_id_;
     float max_total_mass_;
+    float max_velocity_;
 };
 
 } // namespace megamol::trialvolume_gl

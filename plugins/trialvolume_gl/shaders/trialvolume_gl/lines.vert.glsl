@@ -3,10 +3,11 @@
 #include "mmstd_gl/common/tflookup.inc.glsl"
 #include "mmstd_gl/common/tfconvenience.inc.glsl"
 
-#define COLORMODE_VELOCITY 0
-#define COLORMODE_TOTAL_MASS 1
-#define COLORMODE_LOCAL_ID 2
-#define COLORMODE_FRAME 3
+#define COLORMODE_VELOCITY_DIR 0
+#define COLORMODE_VELOCITY_MAG 1
+#define COLORMODE_TOTAL_MASS 2
+#define COLORMODE_LOCAL_ID 3
+#define COLORMODE_FRAME 4
 
 layout(location = 0) in vec3 bbox_min;
 layout(location = 1) in vec3 bbox_max;
@@ -22,6 +23,7 @@ uniform int color_mode;
 uniform float max_mass;
 uniform float max_frame;
 uniform float max_frame_local_id;
+uniform float max_velocity;
 
 out VS_OUT {
     vec4 color;
@@ -35,8 +37,11 @@ void main() {
     vs_out.color = vec4(1.0);
     switch (color_mode) {
         default:
-        case COLORMODE_VELOCITY:
+        case COLORMODE_VELOCITY_DIR:
             vs_out.color.rgb = normalize(velocity) * .5 + .5;
+            break;
+        case COLORMODE_VELOCITY_MAG:
+            vs_out.color = tflookup(length(velocity) / max_velocity);
             break;
         case COLORMODE_TOTAL_MASS:
             vs_out.color = tflookup(total_mass / max_mass);
