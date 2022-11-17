@@ -236,7 +236,9 @@ bool SegmentationAnalysis::refreshInput() {
     if (segmentation_call == nullptr) {
         return false;
     }
-    (*segmentation_call)(0);
+    if (!(*segmentation_call)(0)) {
+        return false;
+    }
 
     // Get the segments
     input_data_.segments = segmentation_call->GetSegments();
