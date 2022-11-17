@@ -99,7 +99,7 @@ bool TrackingGraphRenderer::create() {
 
     try {
         line_shader_ = core::utility::make_glowl_shader(
-            "trialvol_lines", shader_options, "trialvolume_gl/lines.vert.glsl", "trialvolume_gl/lines.frag.glsl");
+            "trialvol_lines", shader_options, "trialvolume_gl/lines.vert.glsl", "trialvolume_gl/lines.geom.glsl", "trialvolume_gl/lines.frag.glsl");
 
         bbox_shader_ = core::utility::make_glowl_shader(
             "trialvol_bbox", shader_options, "trialvolume_gl/bbox.geom.glsl", "trialvolume_gl/bbox.vert.glsl", "trialvolume_gl/bbox.frag.glsl");
